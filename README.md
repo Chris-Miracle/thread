@@ -1,0 +1,2 @@
+# thread
+lifetyle agent native
