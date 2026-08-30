@@ -1,0 +1,27 @@
+{
+  "name": "thread",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "lucide-vue-next": "^1.0.0",
+    "nuxt": "^4.5.2",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@vue/test-utils": "^2.5.0",
+    "happy-dom": "^20.11.12",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.11",
+    "vue-tsc": "^3.3.11"
+  }
+}
