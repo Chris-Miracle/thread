@@ -1,72 +1,71 @@
 import type { createThreadActions } from '~/domain/threadActions'
 import { addToCartTool } from '~/webmcp/tools/addToCart'
-import { beginRetailerSearchTool } from '~/webmcp/tools/beginRetailerSearch'
+import { cancelSearchTool } from '~/webmcp/tools/cancelSearch'
+import { claimSearchTargetsTool } from '~/webmcp/tools/claimSearchTargets'
+import { completeSearchTargetTool } from '~/webmcp/tools/completeSearchTarget'
+import { enrichProductTool } from '~/webmcp/tools/enrichProduct'
 import { getCartTool } from '~/webmcp/tools/getCart'
-import { getRetailersTool } from '~/webmcp/tools/getRetailers'
-import { getStyleProfileTool } from '~/webmcp/tools/getStyleProfile'
-import { getVisibleProductsTool } from '~/webmcp/tools/getVisibleProducts'
-import { getResearchProgressTool } from '~/webmcp/tools/getResearchProgress'
-import { finishRetailerSearchTool } from '~/webmcp/tools/finishRetailerSearch'
-import { planDeepSearchTool } from '~/webmcp/tools/planDeepSearch'
-import { publishProductsTool } from '~/webmcp/tools/publishProducts'
-import { reportResearchTargetTool } from '~/webmcp/tools/reportResearchTarget'
+import { getProductsTool } from '~/webmcp/tools/getProducts'
+import { getProfileTool } from '~/webmcp/tools/getProfile'
+import { getSearchStatusTool } from '~/webmcp/tools/getSearchStatus'
+import { publishCandidatesTool } from '~/webmcp/tools/publishCandidates'
 import { removeFromCartTool } from '~/webmcp/tools/removeFromCart'
-import { searchProductsTool } from '~/webmcp/tools/searchProducts'
 import { setupProfileTool } from '~/webmcp/tools/setupProfile'
+import { startShoppingSearchTool } from '~/webmcp/tools/startShoppingSearch'
+import { updateProfileTool } from '~/webmcp/tools/updateProfile'
 
 type ThreadActions = ReturnType<typeof createThreadActions>
 
 export const THREAD_TOOL_NAMES = [
+  'get_profile',
   'setup_profile',
-  'get_style_profile',
-  'get_retailers',
-  'search_products',
-  'begin_retailer_search',
-  'plan_deep_search',
-  'get_research_progress',
-  'report_research_target',
-  'publish_products',
-  'finish_retailer_search',
-  'get_visible_products',
+  'update_profile',
+  'start_shopping_search',
+  'claim_search_targets',
+  'publish_candidates',
+  'enrich_product',
+  'complete_search_target',
+  'get_search_status',
+  'get_products',
+  'cancel_search',
+  'get_cart',
   'add_to_cart',
   'remove_from_cart',
-  'get_cart',
 ] as const
 
 type ThreadWindow = Window & { __threadWebMCPController?: AbortController }
 
+export function createThreadToolDefinitions(actions: ThreadActions) {
+  return [
+    getProfileTool(actions),
+    setupProfileTool(actions),
+    updateProfileTool(actions),
+    startShoppingSearchTool(actions),
+    claimSearchTargetsTool(actions),
+    publishCandidatesTool(actions),
+    enrichProductTool(actions),
+    completeSearchTargetTool(actions),
+    getSearchStatusTool(actions),
+    getProductsTool(actions),
+    cancelSearchTool(actions),
+    getCartTool(actions),
+    addToCartTool(actions),
+    removeFromCartTool(actions),
+  ]
+}
+
 export async function registerThreadTools(actions: ThreadActions): Promise<string[]> {
   const modelContext = document.modelContext
   if (!modelContext) return []
-
   const threadWindow = window as ThreadWindow
   if (threadWindow.__threadWebMCPController && !threadWindow.__threadWebMCPController.signal.aborted) {
     return [...THREAD_TOOL_NAMES]
   }
-
   const controller = new AbortController()
   threadWindow.__threadWebMCPController = controller
-  const tools = [
-    setupProfileTool(actions),
-    getStyleProfileTool(actions),
-    getRetailersTool(actions),
-    searchProductsTool(actions),
-    beginRetailerSearchTool(actions),
-    planDeepSearchTool(actions),
-    getResearchProgressTool(actions),
-    reportResearchTargetTool(actions),
-    publishProductsTool(actions),
-    finishRetailerSearchTool(actions),
-    getVisibleProductsTool(actions),
-    addToCartTool(actions),
-    removeFromCartTool(actions),
-    getCartTool(actions),
-  ]
-
+  const tools = createThreadToolDefinitions(actions)
   try {
-    for (const tool of tools) {
-      await modelContext.registerTool(tool, { signal: controller.signal })
-    }
+    for (const tool of tools) await modelContext.registerTool(tool, { signal: controller.signal })
     return tools.map(tool => tool.name)
   } catch (error) {
     controller.abort()
@@ -75,7 +74,7 @@ export async function registerThreadTools(actions: ThreadActions): Promise<strin
   }
 }
 
-export function unregisterThreadTools() {
+export function unregisterThreadTools(): void {
   const threadWindow = window as ThreadWindow
   threadWindow.__threadWebMCPController?.abort()
   delete threadWindow.__threadWebMCPController

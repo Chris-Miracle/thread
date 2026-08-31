@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Check } from 'lucide-vue-next'
-import { STYLE_OPTIONS, type StyleId } from '~/types/thread'
+import { MAX_PROFILE_STYLES, MIN_PROFILE_STYLES, STYLE_OPTIONS, type StyleId } from '~/types/thread'
 
 const props = defineProps<{ modelValue: StyleId[] }>()
 const emit = defineEmits<{ 'update:modelValue': [styles: StyleId[]] }>()
@@ -8,17 +8,20 @@ const emit = defineEmits<{ 'update:modelValue': [styles: StyleId[]] }>()
 function toggle(style: StyleId) {
   const selected = props.modelValue.includes(style)
   if (selected) emit('update:modelValue', props.modelValue.filter(item => item !== style))
-  else if (props.modelValue.length < 3) emit('update:modelValue', [...props.modelValue, style])
+  else if (props.modelValue.length < MAX_PROFILE_STYLES) emit('update:modelValue', [...props.modelValue, style])
 }
 </script>
 
 <template>
   <fieldset>
     <div class="mb-4 flex items-end justify-between gap-4">
-      <legend class="text-sm font-medium text-thread-ink">Pick up to 3 styles.</legend>
-      <span class="text-xs tabular-nums text-thread-muted">{{ modelValue.length }} / 3</span>
+      <div>
+        <legend class="text-sm font-medium text-thread-ink">Choose {{ MIN_PROFILE_STYLES }}–{{ MAX_PROFILE_STYLES }} styles.</legend>
+        <p id="style-selection-help" class="mt-1 text-xs leading-5 text-thread-muted">Start with your strongest references; you can broaden them over time.</p>
+      </div>
+      <span class="text-xs tabular-nums" :class="modelValue.length >= MIN_PROFILE_STYLES ? 'text-thread-muted' : 'text-thread-accent'">{{ modelValue.length }} / {{ MAX_PROFILE_STYLES }}</span>
     </div>
-    <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+    <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5" aria-describedby="style-selection-help">
       <button
         v-for="style in STYLE_OPTIONS"
         :key="style.id"
@@ -27,7 +30,7 @@ function toggle(style: StyleId) {
         :class="modelValue.includes(style.id)
           ? 'border-thread-ink bg-thread-ink text-white'
           : 'border-thread-line bg-thread-surface text-thread-ink hover:border-thread-accent disabled:cursor-not-allowed disabled:opacity-45'"
-        :disabled="modelValue.length >= 3 && !modelValue.includes(style.id)"
+        :disabled="modelValue.length >= MAX_PROFILE_STYLES && !modelValue.includes(style.id)"
         :aria-pressed="modelValue.includes(style.id)"
         @click="toggle(style.id)"
       >

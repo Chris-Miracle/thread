@@ -9,7 +9,7 @@ export function addToCartTool(actions: ThreadActions): WebMCPToolDefinition {
   return {
     name: 'add_to_cart',
     title: 'Add product to Thread',
-    description: "Add a curated or agent-published product to the shared browser-local cart. Use the exact Thread product ID and an available size or colour. The visible cart updates immediately and exact variant duplicates are prevented.",
+    description: 'Add an enriched mission product to the shared browser-local cart. Apparel with known sizes or colours requires an explicit variant; candidate-only products must be enriched first. Exact variant duplicates are prevented.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -20,7 +20,7 @@ export function addToCartTool(actions: ThreadActions): WebMCPToolDefinition {
       required: ['productId'],
       additionalProperties: false,
     },
-    annotations: { readOnlyHint: false },
+    annotations: { readOnlyHint: false, untrustedContentHint: true },
     execute(input) {
       const result = actions.addToCart(requiredString(input, 'productId'), {
         size: optionalString(input, 'size'),

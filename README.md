@@ -1,81 +1,171 @@
 # THREAD
 
-> Your wardrobe for the web.
+> A shared fashion research workspace for people and browser agents.
 
-THREAD is an agent-native fashion workspace for the [OpenAI WebMCP Challenge](https://openai.com/webmcp-challenge/). A browser agent researches real retailer pages and progressively publishes verified products while the person filters, inspects, and curates the same live list.
+THREAD’s product thesis is:
 
-There is no embedded chatbot, OpenAI API, API key, MCP server, backend, account, or database. THREAD is a client-only Nuxt 4 static application and remains fully usable when WebMCP is unavailable.
+> “THREAD is a shared fashion research workspace where a browser agent researches the open web and progressively publishes products into the same workspace that the human is simultaneously browsing, filtering, inspecting, and curating.”
 
-## The shared workspace
+The browser agent supplies web navigation and intelligence. THREAD supplies the typed shopping mission, profile, retailer semantics, deterministic research scheduler, candidate validation, product ranking, persistence, cart, human interface, and WebMCP tools.
 
-- **Human workstream:** opens any planned retailer search, filters the accumulated finds by store, brand, category and price, inspects variants, and manages the cart.
-- **Agent workstream:** creates a deep retailer plan, opens its URLs in agent-controlled tabs or delegated browser workers, reports per-store progress, and progressively publishes verified product records into the shared list.
-- **Shared state:** profile, product registry and cross-store cart are used by both workstreams through one typed action layer.
-- **Collision-safe identity:** product IDs are derived from canonical retailer URLs; cart IDs are derived separately from product + size + colour.
-- **Local persistence:** profile, agent-published product snapshots and cart survive refresh through `localStorage`.
+THREAD is a client-only Nuxt 4 / Vue 3 / strict TypeScript / Tailwind application for the [OpenAI WebMCP Challenge](https://openai.com/webmcp-challenge/). It has no backend, database server, API key, OpenAI API call, embedded chatbot, MCP server, scraping service, product-aggregation service, account system, or cloud persistence. The static build remains usable when WebMCP is unavailable.
+
+## Human and agent share one state
 
 ```mermaid
-flowchart TD
-  Human[Human] --> HumanUI[Shared results and filters]
-  Agent[Browser agent] --> MCP[WebMCP imperative tools]
-  HumanUI --> Actions[Shared Thread actions]
+flowchart LR
+  Human[Human interface] --> Actions[Canonical THREAD actions]
+  Agent[Browser agent] --> MCP[document.modelContext tools]
   MCP --> Actions
-  Actions --> Curated[Verified local curation]
-  Actions --> Results[Shared progressive results]
+  Actions --> Profile[Profile]
+  Actions --> Session[SearchSession]
+  Session --> Mission[SearchMission]
+  Session --> Queue[Research queue]
+  Session --> Registry[Candidate registry]
+  Session --> Trace[Execution trace]
   Actions --> Cart[Cross-store cart]
-  Curated --> Results
-  Results --> HumanUI
-  Cart --> HumanUI
-  Actions <--> Storage[(localStorage)]
+  Profile <--> Storage[(localStorage)]
+  Session <--> Storage
+  Cart <--> Storage
 ```
 
-The durable keys are:
+Human and WebMCP operations converge on `app/domain/threadActions.ts`; the UI does not maintain a parallel implementation. A human can keep filtering, browsing, opening details, and managing the cart while the browser agent claims retailer work and progressively publishes products.
 
-- `thread.profile.v1` (schema version 2)
-- `thread.products.agent.v1`
-- `thread.cart.v1` (schema version 2)
+THREAD supports one workspace tab plus browser-agent-controlled retailer tabs. Cross-tab THREAD state synchronization is intentionally not claimed. Search IDs and target claims prevent old retailer workers from publishing into a replacement, cancelled, or completed mission.
 
-A new search intentionally replaces the previous list. Publications within that search always accumulate by canonical product ID, regardless of retailer or worker. Until the first search there are no products or retailer links in the interface. Human filters never interrupt publication, and cart actions from either source immediately update the same cart badge and drawer.
+## SearchMission
 
-## Real-product grounding
+`start_shopping_search` is the only normal entry point for a shopping request. It stores:
 
-`app/data/products.ts` contains a small curated snapshot of real products observed on official Canadian retailer product pages on August 27, 2026. Every record contains:
+- the original prompt;
+- shopping department and style preferences;
+- optional trip, destination, climate, occasion, and notes;
+- concrete needs with retailer-search queries, category signals, required quantities, and optional per-need CAD budgets;
+- explicit per-item and overall CAD budgets, category, retailer, and exclusion constraints;
+- the final deduplicated query set and creation time.
 
-- canonical retailer product URL
-- retailer-hosted product photography
-- observed price and currency
-- listed colours and sizes
-- availability state and observation timestamp
-- retailer identity and logo/favicon
+The browser agent can provide structured semantic context. THREAD also performs small deterministic fallbacks: it recognizes simple categories and budgets, and expands an obvious vacation request such as “Get my clothes for vacation in Cancun” into resort-daytime, beach/pool, and evening-dinner needs. It does not call an LLM or pretend to browse.
 
-Prices and stock are observations, not guarantees. Every card and cart item links back to the retailer so the shopper can recheck the live page before purchasing. Agent submissions are rejected when they use placeholder, search-engine, Pinterest, Instagram, or other non-retailer URLs.
+## Retailer adapters and research queue
 
-THREAD's searchable retailer directory includes Fashion Nova, SHEIN, Oh Polly, Gymshark, Zara, H&M, UNIQLO, COS, ASOS, Aritzia, Abercrombie, Nike, New Balance, adidas, Mango, Reformation, MESHKI, Princess Polly, Dynamite, Garage, lululemon, SSENSE, Simons, OAK + FORT, Frank And Oak, Everlane, Good American, FARFETCH, Shopbop, REVOLVE, Holt Renfrew, and Saks Fifth Avenue. Deep plans also include Pinterest and Google Shopping as discovery sources, but only canonical retailer product pages can be published.
+`app/data/retailers.ts` is a registry of retailer adapters. Each adapter owns:
+
+- canonical domains and phrase-safe aliases;
+- supported departments;
+- categories, styles, occasions, price tier, and retailer type;
+- a search URL template;
+- product URL/domain semantics.
+
+Retailers are scored from department compatibility, category coverage, style and occasion overlap, budget/price-tier fit, profile preferences, and warm-weather relevance. Results are sorted by score and a stable retailer ID tie-breaker, so registry array order cannot determine priority. Generic substring aliases such as `shop` are not used.
+
+Every eligible retailer becomes a persisted target. Each target keeps only the mission needs, queries, and URLs that its declared category capabilities support. Discovery sources are scheduled last unless the mission explicitly restricts retailers. Targets move through:
+
+```text
+queued → claimed → exploring → complete
+                           ↘ no-results
+                           ↘ failed
+queued / claimed / exploring → cancelled
+queued → skipped (only after required needs are satisfied)
+```
+
+`claim_search_targets` returns only 1–4 targets at a time. Priority is recalculated at every claim from the needs that remain unfulfilled, with extra weight for required and scarce capabilities such as fragrance. Each target contains a small need-specific query set and browser-ready URLs. `complete` requires at least one accepted product; zero-product checks must use `no-results` with a reason, and failures require a reason.
+
+THREAD builds a deterministic proposed basket from grounded products with verified CAD prices. A mission may stop early only when every required quantity fits its per-need budget and the overall budget, no target is still claimed or exploring, and every untouched queued target is retained as `skipped` with the reason “skipped after satisfaction.” Otherwise the full plan continues. The original target plan is never rewritten to manufacture completion.
+
+## Candidates, enrichment, integrity, and ranking
+
+Product publication is intentionally two-stage:
+
+1. `publish_candidates` accepts listing-page candidates with `url` and `name` as the minimum fields. Price, image, brand, category, and department can be supplied when observed.
+2. `enrich_product` adds variants, availability, material, description, tags, and detailed pricing when the user inspects or wants to cart a candidate.
+
+THREAD derives canonical product ID, search ID, target ID, observed time, source, and known retailer identity. For known retailers, submitted names never override the registry. Retailer targets reject products from another domain. Discovery targets may introduce an unknown canonical retailer product page, but never a search, Pinterest, Google, social, placeholder, or root URL.
+
+Hard mission constraints are enforced inside THREAD:
+
+- shopping department;
+- explicit category;
+- retailer allow/exclusion lists;
+- active search ID;
+- per-item CAD budget;
+- target and product domain;
+- product-like canonical URL.
+
+Pricing keeps `nativePrice`, `nativeCurrency`, and `priceCad` separate. CAD listings derive `priceCad` directly. Non-CAD listings require an explicitly verified `priceCad`; THREAD never guesses an exchange rate or compares unlike currencies.
+
+The active session retains up to 600 unique candidates. When the documented limit is reached, new unique candidates are explicitly rejected; existing data is never silently truncated. THREAD refuses to replace an active mission; it must first be completed, satisfied, cancelled, or explicitly abandoned. Up to three terminal sessions are retained as read-only recent searches, while cart snapshots remain stable.
+
+Recommended order is deterministic rather than arrival order. It combines mission/query/category relevance, profile style match, occasion match, budget fit, retailer relevance, availability, freshness, and completeness. A greedy diversity pass then applies retailer repetition and near-duplicate penalties plus category-coverage bonuses.
+
+## Browser-local persistence and trace
+
+The current versioned keys are:
+
+- `thread.profile.v4`;
+- `thread.search.v4`;
+- `thread.cart.v3`.
+
+Legacy v1/v3 profile, v3 search, and v1 cart snapshots are migrated when possible. The persisted `SearchSession` includes its mission, targets, products, proposed fulfillment plan, rankings, counts, revision, and the latest 250 trace events. Refreshing the workspace preserves the search ID, queue states, candidates, and progress.
+
+Trace events include search creation, target ranking and claims, candidate receipt/acceptance/rejection, target completion/failure, enrichment, satisfaction, completion, and cancellation. Open `?debug=true` in development to inspect the exact state and trace, refresh registered tools, or run a fixture-backed end-to-end simulation. The small catalog in `app/data/products.ts` is used only by tests and that debug simulator; it is not exposed as normal shopping discovery.
+
+Profiles expose exactly 15 curated styles derived from Copnow’s broader taxonomy while preserving THREAD’s existing IDs. The human selector requires 3–10 choices. Identity and body details are optional, self-described, browser-local, and never used to infer skin tone.
+
+## Discovery interface and commerce boundary
+
+Products render in a lightweight CSS-column masonry feed: roughly two columns on mobile, three to four on tablet, and five to six on wide desktop screens. Image proportions remain useful, new candidates enter progressively, and existing filters and scroll position are not reset by publication.
+
+The human can filter by retailer, brand, category, and verified CAD price; sort by recommendation, price, or observation time; inspect candidate provenance; open the canonical product page; and add enriched variants to the cart.
+
+THREAD is a cross-store meta-cart, not a unified checkout or inventory system. Apparel with known sizes or colours requires an explicit selection. Candidate-only products must be enriched or opened at the retailer. Checkout always remains on each official retailer page.
 
 ## WebMCP tools
 
-THREAD registers fourteen imperative tools on `document.modelContext`:
+THREAD registers fourteen imperative tools:
 
 | Tool | Mode | Purpose |
 | --- | --- | --- |
-| `setup_profile` | Mutating | Creates first-run browser-local profile state without inventing recommendations. |
-| `get_style_profile` | Read only | Returns name, shopping department and styles. |
-| `get_retailers` | Read only | Returns the extensive retailer directory, official domains and departments. |
-| `search_products` | Read only | Replaces the shared list with matches from verified local curation. |
-| `begin_retailer_search` | Mutating | Creates a collision-safe search job and clears the previous list. |
-| `plan_deep_search` | Mutating | Builds an exhaustive multi-store plan with browser-ready search URLs. |
-| `get_research_progress` | Read only | Reads every target, status, count, and search URL. |
-| `report_research_target` | Mutating | Reports one worker/store as queued, active, complete, empty, or failed. |
-| `publish_products` | Mutating | Validates and accumulates externally verified products without replacing other stores. |
-| `finish_retailer_search` | Mutating | Ends the overall pass and exposes any targets left unfinished. |
-| `get_visible_products` | Read only | Reads the single visible result list. |
-| `add_to_cart` | Mutating | Adds a curated or agent product and prevents exact variant duplicates. |
-| `remove_from_cart` | Mutating | Removes one exact cart item by its stable item ID. |
-| `get_cart` | Read only | Returns the exact cart and subtotals the human sees. |
+| `get_profile` | Read only | Read all saved profile fields. |
+| `setup_profile` | Mutating | Create the minimal profile without overwriting existing data by default. |
+| `update_profile` | Mutating | Incrementally learn optional user-approved preferences. |
+| `start_shopping_search` | Mutating | Create and persist one structured mission and ranked queue. |
+| `claim_search_targets` | Mutating | Claim 1–4 queued targets prioritized around unmet needs. |
+| `publish_candidates` | Mutating | Validate and upsert inexpensive listing-page candidates. |
+| `enrich_product` | Mutating | Hydrate one candidate for detail, availability, or cart use. |
+| `complete_search_target` | Mutating | Resolve a target as complete, no-results, or failed. |
+| `get_search_status` | Read only | Read mission, fulfillment/budgets, target states, coverage, and next action. |
+| `get_products` | Read only | Page/filter/sort up to 100 ranked products at a time. |
+| `cancel_search` | Mutating | Cancel or abandon unresolved work while preserving accepted products. |
+| `get_cart` | Read only | Read the exact shared cart and CAD total. |
+| `add_to_cart` | Mutating | Add an enriched exact product variant. |
+| `remove_from_cart` | Mutating | Remove one stable cart item. |
 
-Definitions live in `app/webmcp/tools/`; registration is isolated in `app/webmcp/registerThreadTools.ts` and initialized by `app/plugins/webmcp.client.ts`. Registration is client-only, feature-detects `document.modelContext`, avoids duplicates, and uses an `AbortSignal` for safe teardown.
+Every schema rejects additional properties. Mutating tools have `readOnlyHint: false`; externally sourced product/retailer outputs use `untrustedContentHint: true`. Registration is client-only, feature-detects `document.modelContext`, prevents duplicates, and tears down with one `AbortController`.
 
-THREAD follows the current [WebMCP Imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api) and uses `document.modelContext`, not deprecated `navigator.modelContext` or declarative form markup. Externally sourced outputs are marked with `untrustedContentHint` where appropriate. A page tool cannot grant an LLM control of hidden browser instances; `plan_deep_search` therefore returns explicit targets for the calling agent to open in its own browser tabs or delegated workers. Humans can open the same targets from THREAD's live plan.
+The registration path is equivalent to this literal Imperative API shape:
+
+```ts
+const controller = new AbortController()
+
+await document.modelContext.registerTool({
+  name: 'get_profile',
+  title: 'Get THREAD profile',
+  description: 'Read the browser-local shopping profile before starting a mission.',
+  inputSchema: {
+    type: 'object',
+    properties: {},
+    additionalProperties: false,
+  },
+  annotations: {
+    readOnlyHint: true,
+  },
+  execute() {
+    return { profile: actions.getProfile() }
+  },
+}, { signal: controller.signal })
+```
+
+THREAD uses `document.modelContext`, not `navigator.modelContext`, a custom MCP server, or declarative form tools.
 
 ## Run and verify
 
@@ -86,7 +176,7 @@ npm install
 npm run dev
 ```
 
-Then open the URL printed by Nuxt, normally `http://localhost:3000`.
+Nuxt normally prints `http://localhost:3000`. Production checks:
 
 ```bash
 npm run test
@@ -95,83 +185,83 @@ npm run generate
 npm run build
 ```
 
-`npm run generate` creates the static deployment under `.output/public`.
+The static output is generated under `.output/public`.
 
-## Test WebMCP
+## Recommended live-agent demo
 
-WebMCP is experimental and subject to change. In a compatible Chrome build, enable WebMCP testing (or use the current origin trial/ChatGPT in-app browser), relaunch the browser, run THREAD, and complete onboarding.
-
-Append `?debug=true` during local development. The panel shows browser support, discovered tools, shared state, and a progressive agent-publication simulation using the same production actions.
-
-Recommended live-agent demo:
+Complete onboarding, then ask:
 
 ```text
-get_style_profile({})
-
-# When the returned name is empty, set up the user without inventing styles:
-setup_profile({
-  "name": "Chris",
-  "gender": "women",
-  "styles": ["minimal", "streetwear", "smart-casual"]
-})
-
-# Setup leaves the page empty. Begin the user's requested search:
-get_retailers({})
-plan_deep_search({
-  "query": "relaxed dinner clothes under $180 CAD",
-  "occasion": "dinner",
-  "maxPrice": 180
-})
-
-# Open target URLs in agent-controlled tabs/workers, report target progress,
-# and publish many batches. Omitting complete keeps the overall search active.
-report_research_target({ "searchId": "<id>", "targetId": "target:fashion-nova", "status": "exploring" })
-publish_products({ "searchId": "<id>", "targetId": "target:fashion-nova", "targetComplete": true, "products": [ ... ] })
-get_research_progress({})
-finish_retailer_search({ "searchId": "<id>" })
-get_visible_products({})
-add_to_cart({ "productId": "<returned Thread ID>", "size": "M" })
-get_cart({})
-remove_from_cart({ "itemId": "<returned cart item ID>" })
+Get my clothes for vacation in Cancun.
 ```
 
-`setup_profile` is safe to call defensively: it returns the existing profile without overwriting it unless `replaceExisting: true` is explicitly supplied. Styles are optional so an agent can onboard a new user from only a known name and shopping department; omitted styles remain empty rather than being guessed. It never creates a feed by itself. `search_products` or `begin_retailer_search` starts the shared list, and the next search replaces it.
+The browser agent should follow this loop:
+
+```text
+get_profile
+→ start_shopping_search
+→ claim_search_targets
+→ browse returned retailer URLs
+→ publish_candidates (multiple products per listing where relevant)
+→ enrich_product (only when detail/variant verification is useful)
+→ complete_search_target
+→ claim_search_targets
+→ repeat until get_search_status reports satisfied or completed
+→ get_products
+→ add_to_cart / get_cart
+```
+
+Representative mission creation:
+
+```json
+{
+  "rawPrompt": "Get my clothes for vacation in Cancun.",
+  "context": {
+    "tripType": "vacation",
+    "destination": "Cancun",
+    "climateHints": ["hot", "humid", "tropical"],
+    "occasions": ["vacation", "beach", "resort", "dinner"]
+  },
+  "needs": [
+    {
+      "intent": "resort daytime",
+      "queries": ["linen shirt", "relaxed shorts"],
+      "categories": ["tops", "bottoms"]
+    },
+    {
+      "intent": "beach",
+      "queries": ["swimwear", "sandals"],
+      "categories": ["swimwear", "footwear"]
+    },
+    {
+      "intent": "evening dinner",
+      "queries": ["linen trousers", "knit polo"],
+      "categories": ["bottoms", "tops"]
+    }
+  ]
+}
+```
+
+Also verify the simpler request `Find me a black shirt under $70 CAD`; THREAD should store a tops constraint, enforce the CAD budget, and still schedule retailers by relevance rather than registry order.
 
 ## Project structure
 
 ```text
 app/
-├── components/
-│   ├── cart/
-│   ├── common/
-│   ├── dev/
-│   ├── layout/
-│   ├── onboarding/
-│   └── shopping/
-├── composables/
+├── components/              human workspace, masonry feed, progress, cart, debug
+├── composables/             canonical browser-local state access
 ├── data/
-│   ├── products.ts
-│   └── retailers.ts
+│   ├── products.ts          development/test fixtures only
+│   └── retailers.ts         retailer adapters and deterministic scoring
 ├── domain/
-│   ├── productIdentity.ts
-│   ├── productFilters.ts
-│   ├── productSearch.ts
-│   └── threadActions.ts
-├── plugins/
-│   ├── thread-state.client.ts
-│   └── webmcp.client.ts
-├── providers/
-├── types/
-├── utils/
-└── webmcp/
-    ├── tools/
-    └── registerThreadTools.ts
-tests/
-├── productFilters.test.ts
-├── productSearch.test.ts
-└── threadActions.test.ts
+│   ├── products/            candidate validation, enrichment, ranking, diversity
+│   ├── profile/             schema validation and migration
+│   ├── research/            target scheduler, coverage, telemetry
+│   ├── search/              SearchMission construction and validation
+│   ├── persistence.ts       versioned hydration/migration
+│   └── threadActions.ts     shared human + WebMCP action boundary
+├── plugins/                 state hydration and client-only WebMCP registration
+├── types/                   strict domain contracts
+└── webmcp/                  closed schemas, outputs, registration, tools
+tests/                       48 deterministic unit/integration tests
 ```
-
-## Commerce boundary
-
-THREAD is a meta-cart, not a payment or retailer-inventory system. It does not claim unified checkout or guaranteed availability. Checkout remains on each official retailer page through the exact product links shown in the UI.

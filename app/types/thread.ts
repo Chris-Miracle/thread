@@ -7,52 +7,161 @@ export const STYLE_OPTIONS = [
   { id: 'sporty', label: 'Sporty', description: 'Technical comfort, athletic energy' },
   { id: 'y2k', label: 'Y2K', description: 'Playful turn-of-the-century edge' },
   { id: 'avant-garde', label: 'Avant-Garde', description: 'Sculptural, directional pieces' },
+  { id: 'quiet-luxury', label: 'Quiet Luxury', description: 'Refined fabrics, discreet polish' },
+  { id: 'athleisure', label: 'Athleisure', description: 'Performance ease for everyday wear' },
+  { id: 'preppy', label: 'Preppy', description: 'Collegiate classics, crisp layers' },
+  { id: 'vintage', label: 'Vintage', description: 'Character-rich pieces from past eras' },
+  { id: 'monochrome', label: 'Monochrome', description: 'One-colour dressing with tonal depth' },
+  { id: 'techwear', label: 'Techwear', description: 'Utility details, technical fabrics' },
+  { id: 'boho', label: 'Boho', description: 'Relaxed texture, expressive layering' },
 ] as const
 
-export const SHOPPING_GENDERS = [
+export const MIN_PROFILE_STYLES = 3
+export const MAX_PROFILE_STYLES = 10
+
+export const SHOPPING_DEPARTMENTS = [
   { id: 'women', label: 'Women', description: "Prioritize women's departments" },
   { id: 'men', label: 'Men', description: "Prioritize men's departments" },
   { id: 'all', label: 'Everyone', description: 'Search every department' },
 ] as const
 
-export const PRODUCT_CATEGORIES = ['tops', 'bottoms', 'dresses', 'outerwear', 'footwear', 'accessories', 'activewear'] as const
-export const OCCASIONS = ['dinner', 'date-night', 'work', 'casual', 'weekend', 'party', 'formal', 'travel', 'training'] as const
+// Kept as a source-compatible export for the existing onboarding fixture data.
+export const SHOPPING_GENDERS = SHOPPING_DEPARTMENTS
+
+export const PRODUCT_CATEGORIES = [
+  'tops', 'bottoms', 'dresses', 'outerwear', 'footwear', 'accessories', 'activewear', 'swimwear', 'fragrance',
+] as const
+export const OCCASIONS = [
+  'dinner', 'date-night', 'work', 'casual', 'weekend', 'party', 'formal', 'travel', 'training', 'vacation', 'beach', 'resort',
+] as const
 export const PRODUCT_AVAILABILITY = ['in-stock', 'limited', 'out-of-stock', 'unknown'] as const
+export const RESEARCH_TARGET_STATUSES = ['queued', 'claimed', 'exploring', 'complete', 'no-results', 'failed', 'cancelled', 'skipped'] as const
+export const SEARCH_STATUSES = ['active', 'satisfied', 'completed', 'cancelled', 'abandoned', 'failed'] as const
+export const PRICE_TIERS = ['value', 'mid', 'premium', 'luxury'] as const
+export const RETAILER_TYPES = ['brand', 'department', 'marketplace', 'specialist'] as const
 
 export type StyleId = typeof STYLE_OPTIONS[number]['id']
-export type ShoppingGender = typeof SHOPPING_GENDERS[number]['id']
+export type ShoppingDepartment = typeof SHOPPING_DEPARTMENTS[number]['id']
+export type ShoppingGender = ShoppingDepartment
 export type ProductCategory = typeof PRODUCT_CATEGORIES[number]
 export type Occasion = typeof OCCASIONS[number]
 export type ProductAvailability = typeof PRODUCT_AVAILABILITY[number]
-export type ProductSource = 'curated' | 'agent'
+export type ResearchTargetStatus = typeof RESEARCH_TARGET_STATUSES[number]
+export type SearchStatus = typeof SEARCH_STATUSES[number]
+export type PriceTier = typeof PRICE_TIERS[number]
+export type RetailerType = typeof RETAILER_TYPES[number]
+export type ProductSource = 'agent' | 'curated-fixture'
+export type ProductStage = 'candidate' | 'enriched'
 export type ActionSource = 'human' | 'agent' | 'debug'
-export type ProductSort = 'recommended' | 'price-asc' | 'price-desc'
-export type ResearchDepth = 'focused' | 'balanced' | 'deep'
-export type ResearchTargetStatus = 'queued' | 'exploring' | 'complete' | 'no-results' | 'error'
+export type ProductSort = 'recommended' | 'price-asc' | 'price-desc' | 'newest'
+export type CurrencyCode = 'CAD' | string
 
 export interface ResultFilters {
   retailer: string
   brand: string
   category: ProductCategory | ''
-  maxPrice?: number
+  maxPriceCad?: number
   sort: ProductSort
 }
 
-export interface StyleProfile {
-  version: 2
-  name: string
-  gender: ShoppingGender
-  styles: StyleId[]
+export interface ClothingSizes {
+  tops?: string
+  bottoms?: string
+  dresses?: string
+  outerwear?: string
 }
 
-export interface Retailer {
+export interface StyleProfile {
+  version: 4
+  name: string
+  shoppingDepartment: ShoppingDepartment
+  styles: StyleId[]
+  genderIdentity?: string
+  racialIdentity?: string
+  heightCm?: number
+  weightKg?: number
+  clothingSizes?: ClothingSizes
+  shoeSize?: string
+  preferredFit?: string
+  preferredColours?: string[]
+  avoidedColours?: string[]
+  usualBudgetCad?: number
+  preferredRetailerIds?: string[]
+  excludedRetailerIds?: string[]
+}
+
+export interface RetailerCapabilities {
+  categories: ProductCategory[]
+  styles: StyleId[]
+  occasions: Occasion[]
+  priceTier: PriceTier
+  retailerType: RetailerType
+}
+
+export interface RetailerAdapter {
   id: string
   name: string
-  domain: string
+  domains: string[]
   logo: string
-  searchUrl: string
-  departments: ShoppingGender[]
+  departments: ShoppingDepartment[]
   tags: string[]
+  aliases: string[]
+  capabilities: RetailerCapabilities
+  searchTemplate: string
+}
+
+export interface MissionContext {
+  tripType?: string
+  destination?: string
+  climateHints: string[]
+  occasions: Occasion[]
+  notes?: string
+}
+
+export interface MissionNeed {
+  id: string
+  intent: string
+  queries: string[]
+  categories: ProductCategory[]
+  required: boolean
+  quantity: number
+  budgetCad?: number
+}
+
+export interface MissionConstraints {
+  maxPriceCad?: number
+  overallBudgetCad?: number
+  categories: ProductCategory[]
+  retailerIds: string[]
+  excludedRetailerIds: string[]
+}
+
+export interface SearchMission {
+  version: 1
+  rawPrompt: string
+  shoppingDepartment: ShoppingDepartment
+  stylePreferences: StyleId[]
+  context: MissionContext
+  needs: MissionNeed[]
+  constraints: MissionConstraints
+  derivedQueries: string[]
+  createdAt: string
+}
+
+export interface SearchMissionInput {
+  rawPrompt: string
+  shoppingDepartment?: ShoppingDepartment
+  stylePreferences?: StyleId[]
+  context?: Partial<MissionContext>
+  needs?: Array<{
+    intent: string
+    queries: string[]
+    categories?: ProductCategory[]
+    required?: boolean
+    quantity?: number
+    budgetCad?: number
+  }>
+  constraints?: Partial<MissionConstraints>
 }
 
 export interface ResearchTarget {
@@ -60,62 +169,193 @@ export interface ResearchTarget {
   retailerId: string
   name: string
   logo: string
-  url: string
   sourceType: 'retailer' | 'discovery'
   status: ResearchTargetStatus
+  relevanceScore: number
+  priorityScore: number
+  priorityReasons: string[]
+  rank: number
+  needIds: string[]
+  queries: string[]
+  searchUrls: string[]
   productCount: number
+  rejectedCount: number
   note: string
+  claimId: string | null
+  claimedBy: string | null
+  claimedAt: string | null
   updatedAt: string | null
 }
 
 export interface Product {
   id: string
+  searchId: string
+  targetId: string
+  needIds: string[]
   name: string
-  brand: string
+  brand?: string
   retailer: string
   retailerId: string
   retailerLogo: string
-  category: ProductCategory
-  gender: ShoppingGender
-  price: number
-  currency: string
-  image: string
+  category?: ProductCategory
+  shoppingDepartment?: ShoppingDepartment
+  nativePrice?: number
+  nativeCurrency?: CurrencyCode
+  priceCad?: number
+  image?: string
+  imageWidth?: number
+  imageHeight?: number
   url: string
   colors: string[]
   sizes: string[]
   styleTags: StyleId[]
   occasionTags: Occasion[]
-  description: string
+  description?: string
+  material?: string
   source: ProductSource
+  stage: ProductStage
   availability: ProductAvailability
   observedAt: string
+  relevanceScore: number
 }
 
+export interface ProductCandidateInput {
+  url: string
+  name: string
+  retailer?: string
+  brand?: string
+  nativePrice?: number
+  nativeCurrency?: string
+  priceCad?: number
+  image?: string
+  imageWidth?: number
+  imageHeight?: number
+  category?: ProductCategory
+  shoppingDepartment?: ShoppingDepartment
+  needIds?: string[]
+}
+
+/** Development-only input for the curated fixture provider. Not exposed through WebMCP. */
 export interface ProductSearchInput {
   query: string
   occasion?: Occasion
   category?: ProductCategory
-  maxPrice?: number
+  maxPriceCad?: number
   retailerIds?: string[]
 }
 
-export interface AgentProductInput {
-  name: string
-  brand: string
-  retailer: string
-  category: ProductCategory
-  gender?: ShoppingGender
-  price: number
-  currency: string
-  image: string
-  url: string
-  colors: string[]
-  sizes: string[]
+export interface ProductEnrichmentInput {
+  productId: string
+  name?: string
+  brand?: string
+  nativePrice?: number
+  nativeCurrency?: string
+  priceCad?: number
+  image?: string
+  imageWidth?: number
+  imageHeight?: number
+  category?: ProductCategory
+  shoppingDepartment?: ShoppingDepartment
+  colors?: string[]
+  sizes?: string[]
   styleTags?: StyleId[]
   occasionTags?: Occasion[]
-  description: string
+  description?: string
+  material?: string
   availability?: ProductAvailability
-  observedAt: string
+}
+
+export interface RankingTrace {
+  productId: string
+  relevanceScore: number
+  diversityAdjustment: number
+  finalScore: number
+  position: number
+}
+
+export interface ExecutionTraceEvent {
+  id: string
+  type:
+    | 'search_started'
+    | 'mission_created'
+    | 'targets_ranked'
+    | 'targets_claimed'
+    | 'target_started'
+    | 'candidate_received'
+    | 'candidate_accepted'
+    | 'candidate_rejected'
+    | 'product_enriched'
+    | 'target_completed'
+    | 'target_failed'
+    | 'search_completed'
+    | 'search_satisfied'
+    | 'search_cancelled'
+  at: string
+  targetId?: string
+  productId?: string
+  message: string
+  details?: Record<string, string | number | boolean>
+}
+
+export interface NeedFulfillment {
+  needId: string
+  intent: string
+  required: boolean
+  requiredQuantity: number
+  matchedProductIds: string[]
+  selectedProductIds: string[]
+  subtotalCad: number
+  budgetCad?: number
+  satisfied: boolean
+}
+
+export interface SearchFulfillment {
+  needs: NeedFulfillment[]
+  selectedProductIds: string[]
+  subtotalCad: number
+  overallBudgetCad?: number
+  satisfied: boolean
+}
+
+export interface SearchSession {
+  version: 1
+  id: string
+  status: SearchStatus
+  mission: SearchMission
+  targets: ResearchTarget[]
+  products: Product[]
+  rankings: RankingTrace[]
+  fulfillment: SearchFulfillment
+  acceptedCandidateCount: number
+  rejectedCandidateCount: number
+  telemetry: ExecutionTraceEvent[]
+  createdAt: string
+  updatedAt: string
+  completedAt: string | null
+  cancellationReason: string | null
+  revision: number
+}
+
+export interface SearchState {
+  version: 4
+  activeSearch: SearchSession | null
+  recentSearches: SearchSession[]
+}
+
+export interface SearchCoverage {
+  eligibleRetailers: number
+  totalTargets: number
+  queuedTargets: number
+  claimedTargets: number
+  activeTargets: number
+  completedTargets: number
+  noResultTargets: number
+  failedTargets: number
+  cancelledTargets: number
+  skippedTargets: number
+  acceptedCandidateCount: number
+  rejectedCandidateCount: number
+  unresolvedTargets: number
 }
 
 export interface CartItem {
@@ -128,12 +368,12 @@ export interface CartItem {
 }
 
 export interface CartState {
-  version: 2
+  version: 3
   items: CartItem[]
 }
 
 export interface CartTotal {
-  currency: string
+  currency: 'CAD'
   subtotal: number
 }
 
@@ -141,30 +381,7 @@ export interface CartSummary {
   items: CartItem[]
   itemCount: number
   totals: CartTotal[]
-}
-
-export interface SearchLane {
-  searchId: string | null
-  query: string
-  input: ProductSearchInput | null
-  results: Product[]
-  status: 'idle' | 'loading' | 'exploring' | 'success' | 'error'
-  hasSearched: boolean
-  error: string | null
-  startedAt: string | null
-  updatedAt: string | null
-  exploredRetailers: string[]
-  researchDepth: ResearchDepth
-  researchTargets: ResearchTarget[]
-}
-
-export interface SearchState {
-  results: SearchLane
-}
-
-export interface AgentProductState {
-  version: 1
-  products: Product[]
+  unpricedItemCount: number
 }
 
 export interface ThreadToastMessage {
@@ -187,30 +404,28 @@ export interface AddToCartResult {
   totals: CartTotal[]
 }
 
-export interface PublishProductsResult {
+export interface PublishCandidatesResult {
   searchId: string
   accepted: Product[]
   rejected: Array<{ index: number; reason: string }>
-  visibleCount: number
+  coverage: SearchCoverage
+  nextAction: 'publish_candidates' | 'complete_search_target' | 'claim_search_targets'
 }
 
-export function emptySearchLane(): SearchLane {
-  return {
-    searchId: null,
-    query: '',
-    input: null,
-    results: [],
-    status: 'idle',
-    hasSearched: false,
-    error: null,
-    startedAt: null,
-    updatedAt: null,
-    exploredRetailers: [],
-    researchDepth: 'deep',
-    researchTargets: [],
-  }
+export interface GetProductsInput {
+  searchId?: string
+  cursor?: string
+  offset?: number
+  limit?: number
+  retailerId?: string
+  category?: ProductCategory
+  sort?: ProductSort
+}
+
+export function emptySearchState(): SearchState {
+  return { version: 4, activeSearch: null, recentSearches: [] }
 }
 
 export function emptyResultFilters(): ResultFilters {
-  return { retailer: '', brand: '', category: '', maxPrice: undefined, sort: 'recommended' }
+  return { retailer: '', brand: '', category: '', maxPriceCad: undefined, sort: 'recommended' }
 }

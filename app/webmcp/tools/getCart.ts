@@ -8,9 +8,9 @@ export function getCartTool(actions: ThreadActions): WebMCPToolDefinition {
   return {
     name: 'get_cart',
     title: 'Get current Thread',
-    description: "Read the user's current cross-store cart, including products, selected variants, item count, and separate subtotals by currency. It is the exact cart visible to the human.",
+    description: "Read the exact shared cross-store cart visible to the human, including selected variants, CAD subtotal, unpriced count, and canonical retailer checkout links.",
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-    annotations: { readOnlyHint: true },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
     execute() {
       return compactCart(actions.getCart())
     },

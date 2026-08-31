@@ -7,6 +7,8 @@ const props = defineProps<{ cart: CartSummary }>()
 const emit = defineEmits<{ close: []; remove: [itemId: string]; clear: [] }>()
 const confirmClear = ref(false)
 const closeButton = ref<HTMLButtonElement | null>(null)
+const dialog = ref<HTMLElement | null>(null)
+let previouslyFocused: HTMLElement | null = null
 
 const groupedItems = computed(() => {
   const groups = new Map<string, typeof props.cart.items>()
@@ -20,13 +22,29 @@ const groupedItems = computed(() => {
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close')
+  if (event.key !== 'Tab' || !dialog.value) return
+  const focusable = [...dialog.value.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], select:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+  const first = focusable[0]
+  const last = focusable.at(-1)
+  if (!first || !last) return
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
 }
 
 onMounted(() => {
+  previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
   window.addEventListener('keydown', onKeydown)
   closeButton.value?.focus()
 })
-onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  previouslyFocused?.focus()
+})
 
 function clearConfirmed() {
   emit('clear')
@@ -37,7 +55,7 @@ function clearConfirmed() {
 <template>
   <div class="fixed inset-0 z-50 bg-black/50" role="presentation" @click.self="emit('close')">
     <Transition appear name="drawer">
-      <aside role="dialog" aria-modal="true" aria-labelledby="cart-title" class="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-thread-surface shadow-soft">
+      <aside ref="dialog" role="dialog" aria-modal="true" aria-labelledby="cart-title" class="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-thread-surface shadow-soft">
         <header class="flex h-[72px] shrink-0 items-center justify-between border-b border-thread-line px-5 sm:px-6">
           <div>
             <h2 id="cart-title" class="font-editorial text-3xl">Your Thread</h2>
@@ -65,6 +83,7 @@ function clearConfirmed() {
             <span class="text-sm text-thread-muted">Subtotal {{ total.currency }}</span>
             <span class="text-lg font-medium tabular-nums">{{ formatMoney(total.subtotal, total.currency) }}</span>
           </div>
+          <p v-if="cart.unpricedItemCount" class="mb-3 text-xs text-thread-muted">{{ cart.unpricedItemCount }} {{ cart.unpricedItemCount === 1 ? 'item has' : 'items have' }} no verified CAD price and {{ cart.unpricedItemCount === 1 ? 'is' : 'are' }} excluded from the subtotal.</p>
           <p class="border border-thread-line bg-thread-surface px-4 py-3 text-center text-[11px] leading-5 text-thread-muted">Use each “Buy at retailer” link above. Thread never pretends to complete a retailer checkout.</p>
           <div v-if="cart.items.length" class="mt-4 flex min-h-11 items-center justify-center">
             <button v-if="!confirmClear" type="button" class="cursor-pointer text-xs text-thread-muted underline decoration-thread-line underline-offset-4 transition hover:text-thread-danger" @click="confirmClear = true">Clear cart</button>

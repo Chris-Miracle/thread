@@ -1,21 +1,60 @@
 import { RETAILER_BY_ID } from '~/data/retailers'
 import { canonicalizeProductUrl, productIdFromUrl } from '~/domain/productIdentity'
-import type { Product } from '~/types/thread'
+import type {
+  Occasion, Product, ProductAvailability, ProductCategory, ShoppingDepartment, StyleId,
+} from '~/types/thread'
 
 const OBSERVED_AT = '2026-08-27T12:00:00-04:00'
 
-function verifiedProduct(input: Omit<Product, 'id' | 'retailer' | 'retailerLogo' | 'source' | 'observedAt' | 'url'> & { url: string }): Product {
+interface CuratedProductSeed {
+  name: string
+  brand: string
+  retailerId: string
+  category: ProductCategory
+  gender: ShoppingDepartment
+  price: number
+  currency: string
+  image: string
+  url: string
+  colors: string[]
+  sizes: string[]
+  styleTags: StyleId[]
+  occasionTags: Occasion[]
+  availability: ProductAvailability
+  description: string
+}
+
+function verifiedProduct(input: CuratedProductSeed): Product {
   const retailer = RETAILER_BY_ID.get(input.retailerId)
   if (!retailer) throw new Error(`Unknown retailer: ${input.retailerId}`)
   const url = canonicalizeProductUrl(input.url)
   return {
-    ...input,
     id: productIdFromUrl(url),
+    searchId: 'fixture',
+    targetId: `target:${input.retailerId}`,
+    needIds: [],
+    name: input.name,
+    brand: input.brand,
+    retailerId: input.retailerId,
     url,
     retailer: retailer.name,
     retailerLogo: retailer.logo,
-    source: 'curated',
+    category: input.category,
+    shoppingDepartment: input.gender,
+    nativePrice: input.price,
+    nativeCurrency: input.currency,
+    priceCad: input.currency === 'CAD' ? input.price : undefined,
+    image: input.image,
+    colors: input.colors,
+    sizes: input.sizes,
+    styleTags: input.styleTags,
+    occasionTags: input.occasionTags,
+    description: input.description,
+    source: 'curated-fixture',
+    stage: 'enriched',
+    availability: input.availability,
     observedAt: OBSERVED_AT,
+    relevanceScore: 0,
   }
 }
 

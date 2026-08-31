@@ -6,7 +6,7 @@ const props = defineProps<{ products: Product[]; modelValue: ResultFilters }>()
 const emit = defineEmits<{ 'update:modelValue': [filters: ResultFilters] }>()
 
 const retailers = computed(() => [...new Set(props.products.map(product => product.retailer))].sort())
-const brands = computed(() => [...new Set(props.products.map(product => product.brand))].sort())
+const brands = computed(() => [...new Set(props.products.map(product => product.brand).filter((brand): brand is string => Boolean(brand)))].sort())
 const hasFilters = computed(() => JSON.stringify(props.modelValue) !== JSON.stringify(emptyResultFilters()))
 
 function update<Key extends keyof ResultFilters>(key: Key, value: ResultFilters[Key]) {
@@ -40,14 +40,14 @@ function update<Key extends keyof ResultFilters>(key: Key, value: ResultFilters[
           <option value="">All categories</option><option v-for="category in PRODUCT_CATEGORIES" :key="category" :value="category">{{ category }}</option>
         </select>
       </label>
-      <label class="text-xs text-thread-muted">Price
-        <select :value="modelValue.maxPrice ?? ''" class="mt-1 min-h-11 w-full border border-thread-line bg-thread-surface px-3 text-sm text-thread-ink" @change="update('maxPrice', ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : undefined)">
-          <option value="">Any price</option><option :value="50">Under 50</option><option :value="100">Under 100</option><option :value="150">Under 150</option><option :value="200">Under 200</option>
+      <label class="text-xs text-thread-muted">Price (CAD)
+        <select :value="modelValue.maxPriceCad ?? ''" class="mt-1 min-h-11 w-full border border-thread-line bg-thread-surface px-3 text-sm text-thread-ink" @change="update('maxPriceCad', ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : undefined)">
+          <option value="">Any verified price</option><option :value="50">Under 50</option><option :value="100">Under 100</option><option :value="150">Under 150</option><option :value="200">Under 200</option>
         </select>
       </label>
       <label class="col-span-2 text-xs text-thread-muted lg:col-span-1">Sort
         <select :value="modelValue.sort" class="mt-1 min-h-11 w-full border border-thread-line bg-thread-surface px-3 text-sm text-thread-ink" @change="update('sort', ($event.target as HTMLSelectElement).value as ResultFilters['sort'])">
-          <option value="recommended">Recommended</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option>
+          <option value="recommended">Recommended</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option><option value="newest">Newest observations</option>
         </select>
       </label>
     </div>

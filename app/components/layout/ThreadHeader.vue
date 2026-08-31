@@ -21,7 +21,7 @@ const emit = defineEmits<{ openCart: []; editProfile: []; reset: [] }>()
           <UserRound class="h-4 w-4" :stroke-width="1.7" aria-hidden="true" />
           <span class="hidden sm:inline">{{ profile.name }}</span>
           <span class="hidden text-thread-line sm:inline">/</span>
-          <span class="hidden max-w-64 truncate text-xs capitalize sm:inline">{{ profile.gender }}<template v-if="profile.styles.length"> · {{ profile.styles.map(style => style.replace('-', ' ')).join(' · ') }}</template></span>
+          <span class="hidden max-w-64 truncate text-xs capitalize sm:inline">{{ profile.shoppingDepartment }}<template v-if="profile.styles.length"> · {{ profile.styles.map(style => style.replace('-', ' ')).join(' · ') }}</template></span>
         </button>
         <button
           type="button"

@@ -1,19 +1,26 @@
 <script setup lang="ts">
 import { ArrowRight, X } from 'lucide-vue-next'
-import { SHOPPING_GENDERS, type ShoppingGender, type StyleId, type StyleProfile } from '~/types/thread'
+import type { ProfileInput } from '~/domain/profile/profile'
+import { MIN_PROFILE_STYLES, SHOPPING_DEPARTMENTS, type ShoppingDepartment, type StyleId, type StyleProfile } from '~/types/thread'
 
 const props = withDefaults(defineProps<{ profile?: StyleProfile | null; editing?: boolean }>(), {
   profile: null,
   editing: false,
 })
 const emit = defineEmits<{
-  save: [profile: { name: string; gender: ShoppingGender; styles: StyleId[] }]
+  save: [profile: ProfileInput]
   cancel: []
 }>()
 
 const name = ref(props.profile?.name ?? '')
-const gender = ref<ShoppingGender | ''>(props.profile?.gender ?? '')
+const shoppingDepartment = ref<ShoppingDepartment | ''>(props.profile?.shoppingDepartment ?? '')
 const styles = ref<StyleId[]>(props.profile ? [...props.profile.styles] : [])
+const genderIdentity = ref(props.profile?.genderIdentity ?? '')
+const racialIdentity = ref(props.profile?.racialIdentity ?? '')
+const heightCm = ref(props.profile?.heightCm?.toString() ?? '')
+const weightKg = ref(props.profile?.weightKg?.toString() ?? '')
+const topSize = ref(props.profile?.clothingSizes?.tops ?? '')
+const bottomSize = ref(props.profile?.clothingSizes?.bottoms ?? '')
 const error = ref('')
 const nameInput = ref<HTMLInputElement | null>(null)
 
@@ -26,15 +33,37 @@ function submit() {
     nameInput.value?.focus()
     return
   }
-  if (!styles.value.length) {
-    error.value = 'Choose at least one style.'
+  if (styles.value.length < MIN_PROFILE_STYLES) {
+    error.value = `Choose at least ${MIN_PROFILE_STYLES} styles.`
     return
   }
-  if (!gender.value) {
+  if (!shoppingDepartment.value) {
     error.value = 'Choose who you are shopping for.'
     return
   }
-  emit('save', { name: name.value.trim(), gender: gender.value, styles: styles.value })
+  const parsedHeight = heightCm.value ? Number(heightCm.value) : undefined
+  const parsedWeight = weightKg.value ? Number(weightKg.value) : undefined
+  if (parsedHeight !== undefined && (!Number.isFinite(parsedHeight) || parsedHeight < 80 || parsedHeight > 250)) {
+    error.value = 'Enter a height between 80 and 250 cm.'
+    return
+  }
+  if (parsedWeight !== undefined && (!Number.isFinite(parsedWeight) || parsedWeight < 20 || parsedWeight > 400)) {
+    error.value = 'Enter a weight between 20 and 400 kg.'
+    return
+  }
+  emit('save', {
+    name: name.value.trim(),
+    shoppingDepartment: shoppingDepartment.value,
+    styles: styles.value,
+    genderIdentity: genderIdentity.value.trim() || undefined,
+    racialIdentity: racialIdentity.value.trim() || undefined,
+    heightCm: parsedHeight,
+    weightKg: parsedWeight,
+    clothingSizes: {
+      tops: topSize.value.trim() || undefined,
+      bottoms: bottomSize.value.trim() || undefined,
+    },
+  })
 }
 </script>
 
@@ -84,21 +113,52 @@ function submit() {
           <p class="mb-4 text-xs leading-5 text-thread-muted">This helps Thread choose the right departments. You can still search every store.</p>
           <div class="grid gap-3 sm:grid-cols-3">
             <button
-              v-for="option in SHOPPING_GENDERS"
+              v-for="option in SHOPPING_DEPARTMENTS"
               :key="option.id"
               type="button"
               class="min-h-[76px] cursor-pointer border px-4 py-3 text-left transition"
-              :class="gender === option.id ? 'border-thread-ink bg-thread-ink text-white' : 'border-thread-line bg-thread-surface hover:border-thread-ink'"
-              :aria-pressed="gender === option.id"
-              @click="gender = option.id"
+              :class="shoppingDepartment === option.id ? 'border-thread-ink bg-thread-ink text-white' : 'border-thread-line bg-thread-surface hover:border-thread-ink'"
+              :aria-pressed="shoppingDepartment === option.id"
+              @click="shoppingDepartment = option.id"
             >
               <span class="block text-sm font-medium">{{ option.label }}</span>
-              <span class="mt-1 block text-xs leading-5" :class="gender === option.id ? 'text-white/65' : 'text-thread-muted'">{{ option.description }}</span>
+              <span class="mt-1 block text-xs leading-5" :class="shoppingDepartment === option.id ? 'text-white/65' : 'text-thread-muted'">{{ option.description }}</span>
             </button>
           </div>
         </fieldset>
 
         <StyleSelector v-model="styles" />
+
+        <details class="border border-thread-line bg-thread-surface">
+          <summary class="cursor-pointer px-4 py-4 text-sm font-medium text-thread-ink">Fit and identity details <span class="ml-2 text-xs font-normal text-thread-muted">Optional</span></summary>
+          <div class="grid gap-5 border-t border-thread-line p-4 sm:grid-cols-2">
+            <div>
+              <label for="thread-gender-identity" class="mb-2 block text-xs font-medium text-thread-ink">Gender identity</label>
+              <input id="thread-gender-identity" v-model="genderIdentity" type="text" autocomplete="sex" maxlength="80" class="h-12 w-full border border-thread-line bg-thread-canvas px-3 text-sm focus:border-thread-ink focus:outline-none" placeholder="e.g. man">
+            </div>
+            <div>
+              <label for="thread-racial-identity" class="mb-2 block text-xs font-medium text-thread-ink">Racial or cultural identity</label>
+              <input id="thread-racial-identity" v-model="racialIdentity" type="text" maxlength="80" class="h-12 w-full border border-thread-line bg-thread-canvas px-3 text-sm focus:border-thread-ink focus:outline-none" placeholder="Optional, self-described">
+            </div>
+            <div>
+              <label for="thread-height" class="mb-2 block text-xs font-medium text-thread-ink">Height (cm)</label>
+              <input id="thread-height" v-model="heightCm" type="number" inputmode="decimal" min="80" max="250" step="0.01" class="h-12 w-full border border-thread-line bg-thread-canvas px-3 text-sm tabular-nums focus:border-thread-ink focus:outline-none" placeholder="180">
+            </div>
+            <div>
+              <label for="thread-weight" class="mb-2 block text-xs font-medium text-thread-ink">Weight (kg)</label>
+              <input id="thread-weight" v-model="weightKg" type="number" inputmode="decimal" min="20" max="400" step="0.1" class="h-12 w-full border border-thread-line bg-thread-canvas px-3 text-sm tabular-nums focus:border-thread-ink focus:outline-none" placeholder="81">
+            </div>
+            <div>
+              <label for="thread-top-size" class="mb-2 block text-xs font-medium text-thread-ink">Usual top size</label>
+              <input id="thread-top-size" v-model="topSize" type="text" maxlength="20" class="h-12 w-full border border-thread-line bg-thread-canvas px-3 text-sm uppercase focus:border-thread-ink focus:outline-none" placeholder="L">
+            </div>
+            <div>
+              <label for="thread-bottom-size" class="mb-2 block text-xs font-medium text-thread-ink">Usual bottom size</label>
+              <input id="thread-bottom-size" v-model="bottomSize" type="text" maxlength="20" class="h-12 w-full border border-thread-line bg-thread-canvas px-3 text-sm uppercase focus:border-thread-ink focus:outline-none" placeholder="XL">
+            </div>
+            <p class="sm:col-span-2 text-xs leading-5 text-thread-muted">These details stay in this browser. THREAD preserves self-described identity but does not infer skin tone from racial identity.</p>
+          </div>
+        </details>
 
         <p v-if="error" role="alert" class="text-sm font-medium text-thread-danger">{{ error }}</p>
 

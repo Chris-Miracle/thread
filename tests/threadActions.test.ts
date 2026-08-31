@@ -1,224 +1,286 @@
-import { ref } from 'vue'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { PRODUCTS } from '../app/data/products'
-import { productIdFromUrl } from '../app/domain/productIdentity'
-import { createThreadActions, validateAgentStyleProfile, validateStyleProfile } from '../app/domain/threadActions'
-import { LocalProductProvider } from '../app/providers/LocalProductProvider'
-import { emptySearchLane, type AgentProductInput, type AgentProductState, type CartState, type SearchState, type StyleProfile } from '../app/types/thread'
-import type { StorageAdapter } from '../app/utils/storage'
+import { CART_STORAGE_KEY, PROFILE_STORAGE_KEY, SEARCH_STORAGE_KEY } from '../app/utils/storage'
+import { candidateFromFixture, makeActions, makeStorage, startRestrictedSearch } from './helpers'
+import { STYLE_OPTIONS } from '../app/types/thread'
 
-function makeStorage(): StorageAdapter {
-  const values = new Map<string, string>()
-  return {
-    getItem: key => values.get(key) ?? null,
-    setItem: (key, value) => { values.set(key, value) },
-    removeItem: key => { values.delete(key) },
-  }
-}
+const fashionNovaProducts = PRODUCTS.filter(product => product.retailerId === 'fashion-nova' && product.shoppingDepartment === 'women')
+const sheinProducts = PRODUCTS.filter(product => product.retailerId === 'shein')
+const uniqlo = PRODUCTS.find(product => product.retailerId === 'uniqlo' && product.shoppingDepartment === 'women')!
 
-function makeActions(initialProfile: StyleProfile | null = { version: 2, name: 'Chris', gender: 'women', styles: ['minimal'] }) {
-  const profile = ref<StyleProfile | null>(initialProfile)
-  const cart = ref<CartState>({ version: 2, items: [] })
-  const search = ref<SearchState>({ results: emptySearchLane() })
-  const agentProducts = ref<AgentProductState>({ version: 1, products: [] })
-  const hydrated = ref(true)
-  const storage = makeStorage()
-  const actions = createThreadActions({ profile, cart, search, agentProducts, hydrated, storage, provider: new LocalProductProvider(PRODUCTS) })
-  return { actions, profile, cart, search, agentProducts, storage }
-}
-
-function asAgentInput(product = PRODUCTS[0]!): AgentProductInput {
-  return {
-    name: product.name,
-    brand: product.brand,
-    retailer: product.retailer,
-    category: product.category,
-    gender: product.gender,
-    price: product.price,
-    currency: product.currency,
-    image: product.image,
-    url: `${product.url}${product.url.includes('?') ? '&' : '?'}utm_source=test-suite`,
-    colors: [...product.colors],
-    sizes: [...product.sizes],
-    styleTags: [...product.styleTags],
-    occasionTags: [...product.occasionTags],
-    description: product.description,
-    availability: product.availability,
-    observedAt: product.observedAt,
-  }
-}
-
-describe('profile validation', () => {
-  it('requires a name, shopping department, and supported style', () => {
-    expect(() => validateStyleProfile({ name: '', gender: 'women', styles: ['minimal'] })).toThrow('first name')
-    expect(() => validateStyleProfile({ name: 'Chris', gender: '', styles: ['minimal'] })).toThrow('shopping for')
-    expect(() => validateStyleProfile({ name: 'Chris', gender: 'women', styles: [] })).toThrow('at least one')
-    expect(validateStyleProfile({ name: ' Chris ', gender: 'all', styles: ['minimal'] })).toEqual({ version: 2, name: 'Chris', gender: 'all', styles: ['minimal'] })
+describe('profile evolution and migration', () => {
+  it('offers exactly 15 Copnow-aligned styles and enforces 3 to 10 human selections', () => {
+    expect(STYLE_OPTIONS).toHaveLength(15)
+    const harness = makeActions({ profile: null })
+    expect(() => harness.actions.saveStyleProfile({
+      name: 'Chris', shoppingDepartment: 'men', styles: ['minimal', 'smart-casual'],
+    })).toThrow('at least 3')
+    expect(() => harness.actions.saveStyleProfile({
+      name: 'Chris',
+      shoppingDepartment: 'men',
+      styles: STYLE_OPTIONS.slice(0, 11).map(style => style.id),
+    })).toThrow('up to 10')
   })
 
-  it('allows no more than three styles', () => {
-    expect(() => validateStyleProfile({ name: 'Chris', gender: 'men', styles: ['minimal', 'streetwear', 'smart-casual', 'classic'] })).toThrow('up to three')
+  it('preserves explicitly supplied identity, measurements, and clothing sizes without inference', () => {
+    const harness = makeActions({ profile: null })
+    const profile = harness.actions.saveStyleProfile({
+      name: 'Chris',
+      shoppingDepartment: 'men',
+      styles: ['minimal', 'smart-casual', 'old-money'],
+      genderIdentity: 'man',
+      racialIdentity: 'Black',
+      heightCm: 180.34,
+      weightKg: 81,
+      clothingSizes: { tops: 'L', bottoms: 'XL' },
+    })
+    expect(profile).toMatchObject({
+      version: 4,
+      genderIdentity: 'man',
+      racialIdentity: 'Black',
+      heightCm: 180.34,
+      weightKg: 81,
+      clothingSizes: { tops: 'L', bottoms: 'XL' },
+    })
   })
 
-  it('allows an agent-created profile without inventing a style', () => {
-    expect(validateAgentStyleProfile({ name: 'Alex', gender: 'all' })).toEqual({ version: 2, name: 'Alex', gender: 'all', styles: [] })
-  })
-})
-
-describe('agent-assisted profile setup', () => {
-  it('creates a browser-local profile without showing products before a search', async () => {
-    const harness = makeActions(null)
-    const result = await harness.actions.setupProfile({ name: 'Alex', gender: 'women', styles: ['minimal', 'classic'] })
-
-    expect(result.status).toBe('created')
-    expect(harness.profile.value).toEqual({ version: 2, name: 'Alex', gender: 'women', styles: ['minimal', 'classic'] })
-    expect(harness.search.value.results.hasSearched).toBe(false)
-    expect(harness.search.value.results.results).toEqual([])
-    expect(harness.storage.getItem('thread.profile.v1')).toContain('Alex')
+  it('migrates the legacy profile schema to version 4', () => {
+    const storage = makeStorage({
+      'thread.profile.v1': JSON.stringify({ version: 2, name: 'Chris', gender: 'women', styles: ['minimal'] }),
+    })
+    const harness = makeActions({ profile: null, storage, hydrated: false })
+    harness.actions.hydrate()
+    expect(harness.profile.value).toMatchObject({
+      version: 4,
+      name: 'Chris',
+      shoppingDepartment: 'women',
+      styles: ['minimal'],
+    })
+    expect(storage.getItem(PROFILE_STORAGE_KEY)).toContain('"version":4')
   })
 
-  it('preserves an existing profile unless replacement is explicit', async () => {
+  it('keeps onboarding minimal and supports incremental optional preferences', () => {
+    const harness = makeActions({ profile: null })
+    expect(harness.actions.setupProfile({ name: 'Alex', shoppingDepartment: 'all' })).toMatchObject({ status: 'created' })
+    const updated = harness.actions.updateProfile({
+      preferredFit: 'relaxed',
+      preferredColours: ['navy', 'white'],
+      usualBudgetCad: 180,
+      preferredRetailerIds: ['cos'],
+    })
+    expect(updated).toMatchObject({
+      name: 'Alex',
+      styles: [],
+      preferredFit: 'relaxed',
+      preferredColours: ['navy', 'white'],
+      usualBudgetCad: 180,
+      preferredRetailerIds: ['cos'],
+    })
+  })
+
+  it('preserves an existing profile unless replacement is explicit', () => {
     const harness = makeActions()
-    const result = await harness.actions.setupProfile({ name: 'Someone Else', gender: 'men', styles: ['sporty'] })
-
-    expect(result.status).toBe('existing')
+    expect(harness.actions.setupProfile({ name: 'Someone Else', shoppingDepartment: 'men' }).status).toBe('existing')
     expect(harness.profile.value?.name).toBe('Chris')
-    expect(harness.profile.value?.styles).toEqual(['minimal'])
-  })
-
-  it('can explicitly replace a profile while preserving styles when omitted', async () => {
-    const harness = makeActions()
-    const result = await harness.actions.setupProfile({ name: 'Christopher', gender: 'all', replaceExisting: true })
-
-    expect(result.status).toBe('updated')
-    expect(harness.profile.value).toEqual({ version: 2, name: 'Christopher', gender: 'all', styles: ['minimal'] })
+    expect(harness.actions.setupProfile({ name: 'Alex', shoppingDepartment: 'men', replaceExisting: true }).status).toBe('updated')
+    expect(harness.profile.value?.shoppingDepartment).toBe('men')
   })
 })
 
-describe('collision-safe product and cart actions', () => {
-  let harness: ReturnType<typeof makeActions>
-  const cottonShirt = PRODUCTS.find(product => product.name === 'Cotton Shirt')!
+describe('search persistence, pagination, cancellation, and telemetry', () => {
+  it('persists the active mission, queue, candidates, and progress across hydration', () => {
+    const storage = makeStorage()
+    const first = makeActions({ storage })
+    const started = startRestrictedSearch(first, ['fashion-nova'])
+    const target = first.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    first.actions.publishCandidates({
+      searchId: started.searchId,
+      targetId: target.id,
+      candidates: [candidateFromFixture(fashionNovaProducts[0]!)],
+    })
+    expect(storage.getItem(SEARCH_STORAGE_KEY)).toContain(started.searchId)
 
-  beforeEach(() => { harness = makeActions() })
-
-  it('derives the same product ID after tracking parameters are removed', () => {
-    expect(productIdFromUrl(`${cottonShirt.url}?utm_source=agent`)).toBe(productIdFromUrl(`${cottonShirt.url}?utm_source=human`))
+    const second = makeActions({ profile: null, storage, hydrated: false })
+    second.actions.hydrate()
+    expect(second.search.value.activeSearch).toMatchObject({
+      id: started.searchId,
+      status: 'active',
+      products: [{ id: fashionNovaProducts[0]!.id }],
+    })
+    expect(second.search.value.activeSearch?.targets[0]?.status).toBe('exploring')
   })
 
-  it('adds a verified product and prevents an exact variant duplicate', () => {
-    const first = harness.actions.addToCart(cottonShirt.id, { size: 'M', color: 'Off White' })
-    const duplicate = harness.actions.addToCart(cottonShirt.id, { size: 'M', color: 'Off White' })
-    expect(first.success).toBe(true)
+  it('supports cursor pagination beyond a small first slice', () => {
+    const harness = makeActions()
+    const started = startRestrictedSearch(harness, ['fashion-nova', 'shein'])
+    const targets = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 2 }).targets
+    for (const target of targets) {
+      const products = target.retailerId === 'fashion-nova' ? fashionNovaProducts : sheinProducts
+      harness.actions.publishCandidates({
+        searchId: started.searchId,
+        targetId: target.id,
+        candidates: products.map(candidateFromFixture),
+      })
+    }
+    const first = harness.actions.getProducts({ searchId: started.searchId, limit: 2 })
+    const second = harness.actions.getProducts({ searchId: started.searchId, cursor: first.nextCursor ?? undefined, limit: 2 })
+    expect(first.products).toHaveLength(2)
+    expect(second.products).toHaveLength(2)
+    expect(second.products.map(product => product.id)).not.toEqual(first.products.map(product => product.id))
+    expect(first.total).toBeGreaterThan(4)
+  })
+
+  it('cancels unresolved targets while preserving accepted products', () => {
+    const harness = makeActions()
+    const started = startRestrictedSearch(harness, ['fashion-nova', 'shein'])
+    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const fixture = target.retailerId === 'fashion-nova' ? fashionNovaProducts[0]! : sheinProducts[0]!
+    harness.actions.publishCandidates({ searchId: started.searchId, targetId: target.id, candidates: [candidateFromFixture(fixture)] })
+    const cancelled = harness.actions.cancelSearch(started.searchId, 'User changed plans.')
+    expect(cancelled.status).toBe('cancelled')
+    expect(cancelled.coverage.unresolvedTargets).toBe(0)
+    expect(harness.actions.getProducts({ searchId: started.searchId }).products).toHaveLength(1)
+    expect(() => harness.actions.publishCandidates({ searchId: started.searchId, targetId: target.id, candidates: [candidateFromFixture(fixture)] })).toThrow('cancelled')
+  })
+
+  it('can explicitly mark a search abandoned', () => {
+    const harness = makeActions()
+    const started = startRestrictedSearch(harness, ['fashion-nova'])
+    expect(harness.actions.cancelSearch(started.searchId, 'Agent was asked to abandon this pass.', 'abandoned').status).toBe('abandoned')
+  })
+
+  it('records a bounded local execution trace with acceptance and failure reasons', () => {
+    const harness = makeActions()
+    const started = startRestrictedSearch(harness, ['fashion-nova'])
+    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    harness.actions.publishCandidates({
+      searchId: started.searchId,
+      targetId: target.id,
+      candidates: [
+        candidateFromFixture(fashionNovaProducts[0]!),
+        candidateFromFixture(sheinProducts[0]!),
+      ],
+    })
+    const types = harness.actions.getExecutionTrace().map(event => event.type)
+    expect(types).toEqual(expect.arrayContaining([
+      'search_started',
+      'mission_created',
+      'targets_ranked',
+      'targets_claimed',
+      'target_started',
+      'candidate_received',
+      'candidate_accepted',
+      'candidate_rejected',
+    ]))
+    expect(harness.actions.getExecutionTrace().length).toBeLessThanOrEqual(250)
+  })
+})
+
+describe('variant-stable cross-store cart', () => {
+  it('requires enrichment and explicit known variants before adding', () => {
+    const harness = makeActions()
+    const started = harness.actions.startShoppingSearch({
+      rawPrompt: 'Find a UNIQLO shirt',
+      constraints: { retailerIds: ['uniqlo'] },
+    })
+    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const candidate = harness.actions.publishCandidates({
+      searchId: started.searchId,
+      targetId: target.id,
+      candidates: [candidateFromFixture(uniqlo)],
+    }).accepted[0]!
+    expect(() => harness.actions.addToCart(candidate.id)).toThrow('enrichment')
+    harness.actions.enrichProduct(started.searchId, {
+      productId: candidate.id,
+      colors: uniqlo.colors,
+      sizes: uniqlo.sizes,
+      category: uniqlo.category,
+      shoppingDepartment: uniqlo.shoppingDepartment,
+      priceCad: uniqlo.priceCad,
+      availability: 'in-stock',
+    })
+    expect(() => harness.actions.addToCart(candidate.id)).toThrow('Select a size')
+    expect(() => harness.actions.addToCart(candidate.id, { size: 'M' })).toThrow('Select a colour')
+  })
+
+  it('uses deterministic product + variant identity and CAD totals', () => {
+    const harness = makeActions()
+    const first = harness.actions.addToCart(uniqlo.id, { size: 'M', color: 'Off White' })
+    const duplicate = harness.actions.addToCart(uniqlo.id, { size: 'M', color: 'Off White' })
+    const secondVariant = harness.actions.addToCart(uniqlo.id, { size: 'L', color: 'Off White' })
     expect(duplicate.duplicate).toBe(true)
-    expect(duplicate.cartCount).toBe(1)
-  })
-
-  it('allows the same product with a different variant and distinct item ID', () => {
-    const medium = harness.actions.addToCart(cottonShirt.id, { size: 'M', color: 'Off White' })
-    const large = harness.actions.addToCart(cottonShirt.id, { size: 'L', color: 'Off White' })
-    expect(medium.item.id).not.toBe(large.item.id)
-    expect(harness.actions.getCart().itemCount).toBe(2)
-  })
-
-  it('removes one exact cart item and calculates totals by currency', () => {
-    const first = harness.actions.addToCart(cottonShirt.id)
-    harness.actions.addToCart(PRODUCTS.find(product => product.name === 'Devon Boat Neck Maxi Dress')!.id)
-    expect(harness.actions.getCart().totals).toEqual([{ currency: 'CAD', subtotal: 99.9 }])
+    expect(secondVariant.item.id).not.toBe(first.item.id)
+    expect(harness.actions.getCart()).toMatchObject({
+      itemCount: 2,
+      totals: [{ currency: 'CAD', subtotal: 99.8 }],
+      unpricedItemCount: 0,
+    })
     expect(harness.actions.removeFromCart(first.item.id)).toBe(true)
-    expect(harness.actions.getCart().itemCount).toBe(1)
-  })
-
-  it('rejects unknown products and invalid variants', () => {
-    expect(() => harness.actions.addToCart('product:unknown:nope')).toThrow('Product not found')
-    expect(() => harness.actions.addToCart(cottonShirt.id, { size: '99' })).toThrow('not an available size')
   })
 })
 
-describe('unified progressive results', () => {
-  it('publishes verified agent products into the shared list', () => {
+describe('complete shared human-agent workflow', () => {
+  it('runs start → claim → publish → enrich → complete → rank → cart end to end', () => {
     const harness = makeActions()
-    const started = harness.actions.beginAgentSearch({ query: 'dinner dress under $180', occasion: 'dinner', maxPrice: 180 })
-    const published = harness.actions.publishAgentProducts({ searchId: started.searchId, query: started.query, products: [asAgentInput()], complete: true })
-
-    expect(published.accepted).toHaveLength(1)
-    expect(harness.search.value.results.results).toHaveLength(1)
-    expect(harness.search.value.results.results[0]?.source).toBe('agent')
+    const started = harness.actions.startShoppingSearch({
+      rawPrompt: 'Get my clothes for vacation in Cancun under $180 CAD',
+      constraints: { maxPriceCad: 180, retailerIds: ['fashion-nova', 'shein', 'uniqlo'] },
+    })
+    const targets = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 3, workerId: 'integration' }).targets
+    expect(targets).toHaveLength(3)
+    for (const target of targets) {
+      const fixture = target.retailerId === 'fashion-nova'
+        ? fashionNovaProducts[0]!
+        : target.retailerId === 'shein'
+          ? sheinProducts[0]!
+          : uniqlo
+      const accepted = harness.actions.publishCandidates({
+        searchId: started.searchId,
+        targetId: target.id,
+        candidates: [candidateFromFixture(fixture)],
+      }).accepted[0]!
+      harness.actions.enrichProduct(started.searchId, {
+        productId: accepted.id,
+        colors: fixture.colors,
+        sizes: fixture.sizes,
+        category: fixture.category,
+        shoppingDepartment: fixture.shoppingDepartment,
+        nativePrice: fixture.nativePrice,
+        nativeCurrency: fixture.nativeCurrency,
+        priceCad: fixture.priceCad,
+        description: fixture.description,
+        availability: fixture.availability,
+      })
+      harness.actions.completeSearchTarget({
+        searchId: started.searchId,
+        targetId: target.id,
+        status: 'complete',
+        note: 'Listing and product page checked.',
+      })
+    }
+    const status = harness.actions.getSearchStatus(started.searchId)
+    expect(status.status).toBe('completed')
+    expect(status.coverage).toMatchObject({ completedTargets: 3, unresolvedTargets: 0 })
+    const products = harness.actions.getProducts({ searchId: started.searchId, limit: 100 }).products
+    expect(new Set(products.map(product => product.retailerId)).size).toBe(3)
+    const selected = products[0]!
+    harness.actions.addToCart(selected.id, { size: selected.sizes[0], color: selected.colors[0] }, 'agent')
+    expect(harness.actions.getCart().itemCount).toBe(1)
+    expect(harness.storage.getItem(CART_STORAGE_KEY)).toContain(selected.id)
   })
 
-  it('clears the previous list when a new search begins', async () => {
-    const harness = makeActions()
-    await harness.actions.searchProducts({ query: 'minimal work top', category: 'tops' }, 'agent')
-    expect(harness.search.value.results.results.length).toBeGreaterThan(0)
-    harness.actions.beginAgentSearch({ query: 'a different dinner look' })
-    expect(harness.search.value.results.results).toEqual([])
-    expect(harness.search.value.results.status).toBe('exploring')
-  })
-
-  it('upserts repeated canonical URLs and rejects stale search IDs', () => {
-    const harness = makeActions()
-    const first = harness.actions.beginAgentSearch({ query: 'first search' })
-    harness.actions.publishAgentProducts({ searchId: first.searchId, query: first.query, products: [asAgentInput()], complete: false })
-    harness.actions.publishAgentProducts({ searchId: first.searchId, query: first.query, products: [asAgentInput()], complete: true })
-    expect(harness.search.value.results.results).toHaveLength(1)
-
-    const second = harness.actions.beginAgentSearch({ query: 'second search' })
-    expect(() => harness.actions.publishAgentProducts({ searchId: first.searchId, query: first.query, products: [asAgentInput()] })).toThrow('stale')
-    expect(second.searchId).not.toBe(first.searchId)
-  })
-
-  it('rejects placeholder and search/social URLs', () => {
-    const harness = makeActions()
-    const started = harness.actions.beginAgentSearch({ query: 'real products only' })
-    const invalid = { ...asAgentInput(), url: 'https://example.com/fake-product' }
-    expect(() => harness.actions.publishAgentProducts({ searchId: started.searchId, query: started.query, products: [invalid] })).toThrow('No products were accepted')
-  })
-
-  it('builds a deep multi-store plan and narrows it when stores are named', () => {
-    const harness = makeActions()
-    const broad = harness.actions.beginAgentSearch({ query: 'relaxed dinner outfit under $180' }, 'deep')
-    expect(broad.targets.length).toBeGreaterThan(25)
-    expect(broad.targets.some(target => target.name === 'Pinterest')).toBe(true)
-    expect(broad.targets.some(target => target.name === 'Good American')).toBe(true)
-
-    const specific = harness.actions.beginAgentSearch({ query: 'dinner dresses from Fashion Nova and SHEIN' }, 'deep')
-    expect(specific.targets.map(target => target.retailerId)).toEqual(['fashion-nova', 'shein'])
-  })
-
-  it('refuses to finish while planned retailers are still pending', () => {
-    const harness = makeActions()
-    const started = harness.actions.beginAgentSearch({ query: 'Fashion Nova and SHEIN dinner pieces' }, 'deep')
-    harness.actions.reportResearchTarget({ searchId: started.searchId, targetId: 'target:fashion-nova', status: 'complete' })
-    const result = harness.actions.finishAgentSearch(started.searchId)
-    expect(result.finished).toBe(false)
-    expect(result.pendingTargets.map(target => target.id)).toEqual(['target:shein'])
-    expect(harness.search.value.results.status).toBe('exploring')
-  })
-
-  it('accumulates batches from different retailers and tracks each target independently', () => {
-    const harness = makeActions()
-    const started = harness.actions.beginAgentSearch({ query: 'Fashion Nova and SHEIN dinner pieces' }, 'deep')
-    harness.actions.publishAgentProducts({ searchId: started.searchId, query: started.query, targetId: 'target:fashion-nova', targetComplete: true, products: [asAgentInput(PRODUCTS[0])] })
-    harness.actions.publishAgentProducts({ searchId: started.searchId, query: started.query, targetId: 'target:shein', targetComplete: true, products: [asAgentInput(PRODUCTS[3])] })
-
-    expect(harness.search.value.results.results).toHaveLength(2)
-    expect(harness.search.value.results.results.map(product => product.retailer)).toEqual(['Fashion Nova', 'SHEIN'])
-    expect(harness.search.value.results.status).toBe('exploring')
-    expect(harness.actions.getResearchProgress().targets.every(target => target.status === 'complete')).toBe(true)
-    expect(harness.actions.finishAgentSearch(started.searchId).pendingTargets).toEqual([])
-    expect(harness.search.value.results.status).toBe('success')
-  })
-
-  it('resets all THREAD-owned browser state', () => {
-    const harness = makeActions()
-    harness.actions.addToCart(PRODUCTS[0]!.id)
-    harness.actions.beginAgentSearch({ query: 'dinner pieces' })
+  it('resets every current and legacy THREAD-owned browser key', () => {
+    const storage = makeStorage({
+      'thread.profile.v1': '{}',
+      'thread.cart.v1': '{}',
+      'thread.products.agent.v1': '{}',
+    })
+    const harness = makeActions({ storage })
+    startRestrictedSearch(harness, ['fashion-nova'])
     harness.actions.resetWorkspace()
+    expect([...storage.values.keys()]).toEqual([])
     expect(harness.profile.value).toBeNull()
+    expect(harness.search.value.activeSearch).toBeNull()
     expect(harness.cart.value.items).toEqual([])
-    expect(harness.agentProducts.value.products).toEqual([])
-    expect(harness.search.value.results.hasSearched).toBe(false)
-    expect(harness.storage.getItem('thread.profile.v1')).toBeNull()
-    expect(harness.storage.getItem('thread.cart.v1')).toBeNull()
-    expect(harness.storage.getItem('thread.products.agent.v1')).toBeNull()
   })
 })

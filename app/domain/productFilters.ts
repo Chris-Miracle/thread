@@ -5,11 +5,12 @@ export function filterProducts(products: Product[], filters: ResultFilters): Pro
     if (filters.retailer && product.retailer !== filters.retailer) return false
     if (filters.brand && product.brand !== filters.brand) return false
     if (filters.category && product.category !== filters.category) return false
-    if (filters.maxPrice !== undefined && product.price > filters.maxPrice) return false
+    if (filters.maxPriceCad !== undefined && (product.priceCad === undefined || product.priceCad > filters.maxPriceCad)) return false
     return true
   })
 
-  if (filters.sort === 'price-asc') return visible.toSorted((a, b) => a.price - b.price)
-  if (filters.sort === 'price-desc') return visible.toSorted((a, b) => b.price - a.price)
+  if (filters.sort === 'price-asc') return visible.toSorted((a, b) => (a.priceCad ?? Number.POSITIVE_INFINITY) - (b.priceCad ?? Number.POSITIVE_INFINITY))
+  if (filters.sort === 'price-desc') return visible.toSorted((a, b) => (b.priceCad ?? Number.NEGATIVE_INFINITY) - (a.priceCad ?? Number.NEGATIVE_INFINITY))
+  if (filters.sort === 'newest') return visible.toSorted((a, b) => Date.parse(b.observedAt) - Date.parse(a.observedAt))
   return visible
 }

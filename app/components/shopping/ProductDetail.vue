@@ -1,69 +1,114 @@
 <script setup lang="ts">
-import { ExternalLink, ShoppingBag, X } from 'lucide-vue-next'
+import { ExternalLink, Image as ImageIcon, ShoppingBag, X } from 'lucide-vue-next'
 import type { Product } from '~/types/thread'
 import { formatMoney } from '~/utils/money'
 
 const props = defineProps<{ product: Product }>()
 const emit = defineEmits<{ close: []; add: [options: { size?: string; color?: string }] }>()
-const selectedSize = ref(props.product.sizes[0] ?? '')
-const selectedColor = ref(props.product.colors[0] ?? '')
+const selectedSize = ref('')
+const selectedColor = ref('')
 const closeButton = ref<HTMLButtonElement | null>(null)
+const dialog = ref<HTMLElement | null>(null)
+let previouslyFocused: HTMLElement | null = null
+const displayPrice = computed(() => props.product.priceCad !== undefined
+  ? formatMoney(props.product.priceCad, 'CAD')
+  : props.product.nativePrice !== undefined && props.product.nativeCurrency
+    ? formatMoney(props.product.nativePrice, props.product.nativeCurrency)
+    : 'Price not verified')
+const variantReady = computed(() => props.product.stage === 'enriched'
+  && (!props.product.sizes.length || Boolean(selectedSize.value))
+  && (!props.product.colors.length || Boolean(selectedColor.value)))
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close')
+  if (event.key !== 'Tab' || !dialog.value) return
+  const focusable = [...dialog.value.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], select:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+  const first = focusable[0]
+  const last = focusable.at(-1)
+  if (!first || !last) return
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
 }
 
 onMounted(() => {
+  previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
   window.addEventListener('keydown', onKeydown)
   closeButton.value?.focus()
 })
-onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  previouslyFocused?.focus()
+})
 </script>
 
 <template>
   <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-6" role="presentation" @click.self="emit('close')">
-    <section role="dialog" aria-modal="true" :aria-labelledby="`product-title-${product.id}`" class="relative max-h-[94dvh] w-full max-w-5xl overflow-y-auto bg-thread-surface shadow-soft sm:max-h-[88dvh]">
+    <section ref="dialog" role="dialog" aria-modal="true" :aria-labelledby="`product-title-${product.id}`" class="relative max-h-[94dvh] w-full max-w-5xl overflow-y-auto bg-thread-surface shadow-soft sm:max-h-[88dvh]">
       <button ref="closeButton" type="button" class="absolute right-3 top-3 z-10 flex h-11 w-11 cursor-pointer items-center justify-center bg-thread-surface text-thread-ink transition hover:bg-thread-ink hover:text-white" aria-label="Close product details" @click="emit('close')">
         <X class="h-5 w-5" aria-hidden="true" />
       </button>
       <div class="grid md:grid-cols-2">
-        <div class="aspect-[4/5] min-h-0 bg-thread-soft md:aspect-auto">
-          <img :src="product.image" :alt="`${product.name} by ${product.brand}`" width="900" height="1125" class="h-full w-full object-cover">
+        <div class="min-h-72 bg-thread-soft">
+          <img v-if="product.image" :src="product.image" :alt="product.name" :width="product.imageWidth ?? 720" :height="product.imageHeight ?? 900" class="h-auto max-h-[78dvh] w-full object-contain" referrerpolicy="no-referrer">
+          <div v-else class="flex min-h-72 flex-col items-center justify-center gap-3 text-thread-muted md:min-h-full">
+            <ImageIcon class="h-8 w-8" :stroke-width="1.3" aria-hidden="true" />
+            <span class="text-sm">Image not published</span>
+          </div>
         </div>
-        <div class="flex flex-col p-6 sm:p-9 lg:p-12">
-          <p class="text-xs font-medium uppercase tracking-[0.18em] text-thread-muted">{{ product.retailer }} / {{ product.brand }}</p>
-          <h2 :id="`product-title-${product.id}`" class="mt-4 font-editorial text-4xl leading-none sm:text-5xl">{{ product.name }}</h2>
-          <p class="mt-4 text-lg tabular-nums">{{ formatMoney(product.price, product.currency) }}</p>
-          <p class="mt-6 text-sm leading-7 text-thread-muted">{{ product.description }}</p>
-          <a :href="product.url" target="_blank" rel="noopener noreferrer" class="mt-4 flex min-h-11 items-center gap-2 self-start text-sm font-medium underline decoration-thread-line underline-offset-4 transition hover:text-thread-accent">
-            View live product at {{ product.retailer }} <ExternalLink class="h-4 w-4" aria-hidden="true" />
-          </a>
-
-          <div class="mt-8 space-y-6 border-y border-thread-line py-6">
-            <fieldset>
-              <legend class="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-thread-muted">Colour</legend>
-              <div class="flex flex-wrap gap-2">
-                <button v-for="color in product.colors" :key="color" type="button" class="min-h-11 cursor-pointer border px-4 text-sm transition" :class="selectedColor === color ? 'border-thread-ink bg-thread-ink text-white' : 'border-thread-line hover:border-thread-ink'" :aria-pressed="selectedColor === color" @click="selectedColor = color">{{ color }}</button>
-              </div>
-            </fieldset>
-            <fieldset>
-              <legend class="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-thread-muted">Size</legend>
-              <div class="flex flex-wrap gap-2">
-                <button v-for="size in product.sizes" :key="size" type="button" class="min-h-11 min-w-11 cursor-pointer border px-3 text-sm transition" :class="selectedSize === size ? 'border-thread-ink bg-thread-ink text-white' : 'border-thread-line hover:border-thread-ink'" :aria-pressed="selectedSize === size" @click="selectedSize = size">{{ size }}</button>
-              </div>
-            </fieldset>
-          </div>
-
-          <div class="mt-auto pt-8">
-            <div class="mb-5 flex flex-wrap gap-2">
-              <span v-for="tag in product.styleTags" :key="tag" class="border border-thread-line px-2.5 py-1 text-[11px] capitalize text-thread-muted">{{ tag.replace('-', ' ') }}</span>
+        <div class="p-6 pt-16 sm:p-9 sm:pt-16">
+          <div class="flex items-center gap-2.5">
+            <img :src="product.retailerLogo" alt="" width="28" height="28" class="h-7 w-7 rounded border border-thread-line bg-white object-contain p-0.5">
+            <div>
+              <p class="text-xs font-medium">{{ product.retailer }}</p>
+              <p class="text-[10px] text-thread-muted">{{ product.source === 'agent' ? 'Agent sourced from canonical retailer page' : 'Development fixture' }}</p>
             </div>
-            <button type="button" class="flex min-h-12 w-full cursor-pointer items-center justify-center gap-3 bg-thread-ink px-6 text-sm font-medium text-white transition hover:bg-thread-accent" @click="emit('add', { size: selectedSize || undefined, color: selectedColor || undefined })">
-              <ShoppingBag class="h-4 w-4" :stroke-width="1.8" aria-hidden="true" />
-              Add to Thread
-            </button>
-            <p class="mt-3 text-center text-[11px] leading-5 text-thread-muted">Price and availability observed {{ new Date(product.observedAt).toLocaleDateString('en-CA') }}. Confirm on the retailer page before purchase.</p>
           </div>
+          <p class="mt-7 text-[11px] font-medium uppercase tracking-[0.15em] text-thread-muted">{{ product.brand || product.category || 'Product candidate' }}</p>
+          <h2 :id="`product-title-${product.id}`" class="mt-2 font-editorial text-4xl leading-tight sm:text-5xl">{{ product.name }}</h2>
+          <p class="mt-4 text-lg tabular-nums">{{ displayPrice }}</p>
+          <p v-if="product.description" class="mt-5 text-sm leading-6 text-thread-muted">{{ product.description }}</p>
+          <p v-if="product.material" class="mt-3 text-xs leading-5 text-thread-muted"><span class="font-medium text-thread-ink">Material:</span> {{ product.material }}</p>
+
+          <div v-if="product.stage === 'candidate'" class="mt-7 border border-thread-line bg-thread-canvas p-4">
+            <p class="text-sm font-medium">Candidate details are not enriched yet.</p>
+            <p class="mt-2 text-xs leading-5 text-thread-muted">Ask your browser agent to inspect this product with <code>enrich_product</code>, or continue on the retailer page to verify price, stock, sizes, and colours.</p>
+          </div>
+
+          <template v-else>
+            <label v-if="product.colors.length" class="mt-7 block text-xs font-medium text-thread-muted">Colour
+              <select v-model="selectedColor" class="mt-2 min-h-11 w-full border border-thread-line bg-white px-3 text-sm text-thread-ink">
+                <option value="" disabled>Select a colour</option>
+                <option v-for="color in product.colors" :key="color" :value="color">{{ color }}</option>
+              </select>
+            </label>
+            <label v-if="product.sizes.length" class="mt-5 block text-xs font-medium text-thread-muted">Size
+              <select v-model="selectedSize" class="mt-2 min-h-11 w-full border border-thread-line bg-white px-3 text-sm text-thread-ink">
+                <option value="" disabled>Select a size</option>
+                <option v-for="size in product.sizes" :key="size" :value="size">{{ size }}</option>
+              </select>
+            </label>
+          </template>
+
+          <div class="mt-8 grid gap-3 sm:grid-cols-2">
+            <button
+              v-if="product.stage === 'enriched'"
+              type="button"
+              class="flex min-h-12 cursor-pointer items-center justify-center gap-2 bg-thread-ink px-4 text-sm font-medium text-white transition hover:bg-thread-accent disabled:cursor-not-allowed disabled:opacity-45"
+              :disabled="!variantReady"
+              @click="emit('add', { size: selectedSize || undefined, color: selectedColor || undefined })"
+            >
+              <ShoppingBag class="h-4 w-4" aria-hidden="true" /> Add to your Thread
+            </button>
+            <a :href="product.url" target="_blank" rel="noopener noreferrer" class="flex min-h-12 items-center justify-center gap-2 border border-thread-line px-4 text-sm font-medium transition hover:border-thread-ink">
+              Open retailer <ExternalLink class="h-4 w-4" aria-hidden="true" />
+            </a>
+          </div>
+          <p class="mt-5 text-[11px] leading-5 text-thread-muted">Observed {{ new Date(product.observedAt).toLocaleString('en-CA') }}. THREAD does not perform retailer checkout or guarantee current stock.</p>
         </div>
       </div>
     </section>

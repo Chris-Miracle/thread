@@ -20,6 +20,15 @@ export function optionalNumber(input: Record<string, unknown>, key: string): num
   return value
 }
 
+export function optionalInteger(input: Record<string, unknown>, key: string, minimum = 0, maximum = Number.MAX_SAFE_INTEGER): number | undefined {
+  const value = input[key]
+  if (value === undefined) return undefined
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum || value > maximum) {
+    throw new Error(`${key} must be an integer between ${minimum} and ${maximum}.`)
+  }
+  return value
+}
+
 export function optionalBoolean(input: Record<string, unknown>, key: string): boolean | undefined {
   const value = input[key]
   if (value === undefined) return undefined
@@ -34,6 +43,19 @@ export function optionalStringArray(input: Record<string, unknown>, key: string)
     throw new Error(`${key} must be an array of non-empty strings.`)
   }
   return value.map(item => String(item).trim())
+}
+
+export function optionalRecord(input: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
+  const value = input[key]
+  if (value === undefined) return undefined
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error(`${key} must be an object.`)
+  return value as Record<string, unknown>
+}
+
+export function requiredArray(input: Record<string, unknown>, key: string): unknown[] {
+  const value = input[key]
+  if (!Array.isArray(value)) throw new Error(`${key} must be an array.`)
+  return value
 }
 
 export function optionalCategory(input: Record<string, unknown>): ProductCategory | undefined {
