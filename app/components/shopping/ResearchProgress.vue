@@ -41,6 +41,7 @@ const statusLabel: Record<ResearchTargetStatus, string> = {
             {{ session.fulfillment.selectedProductIds.length }} proposed · CAD {{ session.fulfillment.subtotalCad.toFixed(2) }}
             <template v-if="session.fulfillment.overallBudgetCad"> / {{ session.fulfillment.overallBudgetCad.toFixed(2) }}</template>
             <template v-if="session.fulfillment.satisfied"> · Required basket satisfied</template>
+            <template v-if="session.recommendationReview?.status === 'pending'"> · Awaiting your review</template>
           </p>
         </div>
       </div>

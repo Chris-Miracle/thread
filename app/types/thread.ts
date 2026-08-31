@@ -37,6 +37,7 @@ export const OCCASIONS = [
 export const PRODUCT_AVAILABILITY = ['in-stock', 'limited', 'out-of-stock', 'unknown'] as const
 export const RESEARCH_TARGET_STATUSES = ['queued', 'claimed', 'exploring', 'complete', 'no-results', 'failed', 'cancelled', 'skipped'] as const
 export const SEARCH_STATUSES = ['active', 'satisfied', 'completed', 'cancelled', 'abandoned', 'failed'] as const
+export const RECOMMENDATION_REVIEW_STATUSES = ['pending', 'accepted', 'replacement-started'] as const
 export const PRICE_TIERS = ['value', 'mid', 'premium', 'luxury'] as const
 export const RETAILER_TYPES = ['brand', 'department', 'marketplace', 'specialist'] as const
 
@@ -48,6 +49,7 @@ export type Occasion = typeof OCCASIONS[number]
 export type ProductAvailability = typeof PRODUCT_AVAILABILITY[number]
 export type ResearchTargetStatus = typeof RESEARCH_TARGET_STATUSES[number]
 export type SearchStatus = typeof SEARCH_STATUSES[number]
+export type RecommendationReviewStatus = typeof RECOMMENDATION_REVIEW_STATUSES[number]
 export type PriceTier = typeof PRICE_TIERS[number]
 export type RetailerType = typeof RETAILER_TYPES[number]
 export type ProductSource = 'agent' | 'curated-fixture'
@@ -317,6 +319,24 @@ export interface SearchFulfillment {
   satisfied: boolean
 }
 
+export type RecommendationReviewResolution =
+  | 'user-accepted'
+  | 'timeout-accepted'
+  | 'replace-selected'
+  | 'replace-all'
+
+export interface RecommendationReview {
+  status: RecommendationReviewStatus
+  productIds: string[]
+  likedProductIds: string[]
+  rejectedProductIds: string[]
+  startedAt: string
+  deadlineAt: string
+  completedAt: string | null
+  resolution: RecommendationReviewResolution | null
+  replacementSearchId: string | null
+}
+
 export interface SearchSession {
   version: 1
   id: string
@@ -334,12 +354,28 @@ export interface SearchSession {
   completedAt: string | null
   cancellationReason: string | null
   revision: number
+  recommendationReview?: RecommendationReview
 }
 
 export interface SearchState {
   version: 4
   activeSearch: SearchSession | null
   recentSearches: SearchSession[]
+}
+
+export interface SavedResearchEntry {
+  id: string
+  searchId: string
+  prompt: string
+  acceptedAt: string
+  resolution: RecommendationReviewResolution
+  products: Product[]
+}
+
+export interface ResearchHistoryState {
+  version: 1
+  entries: SavedResearchEntry[]
+  seenProductKeys: string[]
 }
 
 export interface SearchCoverage {
@@ -428,4 +464,8 @@ export function emptySearchState(): SearchState {
 
 export function emptyResultFilters(): ResultFilters {
   return { retailer: '', brand: '', category: '', maxPriceCad: undefined, sort: 'recommended' }
+}
+
+export function emptyResearchHistory(): ResearchHistoryState {
+  return { version: 1, entries: [], seenProductKeys: [] }
 }

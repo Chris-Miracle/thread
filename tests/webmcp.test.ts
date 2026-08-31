@@ -31,7 +31,7 @@ describe('WebMCP mission-oriented surface', () => {
   it('marks read-only and externally sourced outputs correctly', () => {
     const tools = createThreadToolDefinitions(makeActions().actions)
     const readOnly = tools.filter(tool => tool.annotations.readOnlyHint).map(tool => tool.name)
-    expect(readOnly).toEqual(['get_profile', 'get_search_status', 'get_products', 'get_cart'])
+    expect(readOnly).toEqual(['get_profile', 'get_search_status', 'get_products', 'get_research_history', 'get_cart'])
     const untrusted = tools.filter(tool => tool.annotations.untrustedContentHint).map(tool => tool.name)
     expect(untrusted).toEqual(expect.arrayContaining([
       'claim_search_targets',
@@ -39,6 +39,9 @@ describe('WebMCP mission-oriented surface', () => {
       'enrich_product',
       'get_search_status',
       'get_products',
+      'review_recommendations',
+      'research_again',
+      'get_research_history',
       'cancel_search',
       'get_cart',
       'add_to_cart',

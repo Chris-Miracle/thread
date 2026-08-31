@@ -30,6 +30,20 @@ export function productIdFromUrl(value: string): string {
   return `product:${domain}:${stableHash(canonical)}`
 }
 
+const VARIANT_PARAMETERS = new Set([
+  'catid', 'color', 'colorid', 'colour', 'colourid', 'size', 'sku', 'variant',
+])
+
+/** Stable product-family identity used to keep later research genuinely fresh. */
+export function productFreshnessKey(value: string): string {
+  const canonical = new URL(canonicalizeProductUrl(value))
+  for (const key of [...canonical.searchParams.keys()]) {
+    if (VARIANT_PARAMETERS.has(key.toLowerCase())) canonical.searchParams.delete(key)
+  }
+  canonical.searchParams.sort()
+  return canonical.toString()
+}
+
 export function cartItemId(productId: string, size?: string, color?: string): string {
   const variant = `${productId}|${size?.trim().toLowerCase() ?? ''}|${color?.trim().toLowerCase() ?? ''}`
   return `cart:${stableHash(variant)}`

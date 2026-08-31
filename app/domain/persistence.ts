@@ -2,9 +2,9 @@ import { RETAILER_BY_ID, retailerForDomain } from '~/data/retailers'
 import { canonicalizeProductUrl, cartItemId, productIdFromUrl, stableHash } from '~/domain/productIdentity'
 import { evaluateMissionFulfillment } from '~/domain/research/fulfillment'
 import {
-  OCCASIONS, PRODUCT_AVAILABILITY, PRODUCT_CATEGORIES, RESEARCH_TARGET_STATUSES, SEARCH_STATUSES,
+  OCCASIONS, PRODUCT_AVAILABILITY, PRODUCT_CATEGORIES, RECOMMENDATION_REVIEW_STATUSES, RESEARCH_TARGET_STATUSES, SEARCH_STATUSES,
   SHOPPING_DEPARTMENTS, STYLE_OPTIONS, emptySearchState,
-  type CartState, type Product, type ProductAvailability, type ProductCategory, type ResearchTarget,
+  type CartState, type Product, type ProductAvailability, type ProductCategory, type RecommendationReview, type ResearchTarget,
   type SearchMission, type SearchSession, type SearchState, type ShoppingDepartment, type StyleId,
 } from '~/types/thread'
 
@@ -15,6 +15,7 @@ const occasionIds = new Set<string>(OCCASIONS)
 const availabilityIds = new Set<string>(PRODUCT_AVAILABILITY)
 const targetStatuses = new Set<string>(RESEARCH_TARGET_STATUSES)
 const searchStatuses = new Set<string>(SEARCH_STATUSES)
+const recommendationReviewStatuses = new Set<string>(RECOMMENDATION_REVIEW_STATUSES)
 
 function record(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null ? value as Record<string, unknown> : null
@@ -170,6 +171,28 @@ function hydrateMission(value: unknown): SearchMission | null {
   }
 }
 
+function hydrateRecommendationReview(value: unknown, products: readonly Product[]): RecommendationReview | undefined {
+  const item = record(value)
+  if (!item || typeof item.status !== 'string' || !recommendationReviewStatuses.has(item.status)) return undefined
+  const knownProductIds = new Set(products.map(product => product.id))
+  const productIds = stringArray(item.productIds).filter(productId => knownProductIds.has(productId))
+  if (!productIds.length || typeof item.startedAt !== 'string' || typeof item.deadlineAt !== 'string') return undefined
+  const resolution = ['user-accepted', 'timeout-accepted', 'replace-selected', 'replace-all'].includes(String(item.resolution))
+    ? item.resolution as RecommendationReview['resolution']
+    : null
+  return {
+    status: item.status as RecommendationReview['status'],
+    productIds,
+    likedProductIds: stringArray(item.likedProductIds).filter(productId => productIds.includes(productId)),
+    rejectedProductIds: stringArray(item.rejectedProductIds).filter(productId => productIds.includes(productId)),
+    startedAt: item.startedAt,
+    deadlineAt: item.deadlineAt,
+    completedAt: typeof item.completedAt === 'string' ? item.completedAt : null,
+    resolution,
+    replacementSearchId: typeof item.replacementSearchId === 'string' ? item.replacementSearchId : null,
+  }
+}
+
 function hydrateSearchSession(value: unknown): SearchSession | null {
   const item = record(value)
   if (!item || item.version !== 1 || typeof item.id !== 'string' || typeof item.status !== 'string' || !searchStatuses.has(item.status)) {
@@ -204,6 +227,7 @@ function hydrateSearchSession(value: unknown): SearchSession | null {
     completedAt: typeof item.completedAt === 'string' ? item.completedAt : null,
     cancellationReason: typeof item.cancellationReason === 'string' ? item.cancellationReason : null,
     revision: typeof item.revision === 'number' ? item.revision : 0,
+    recommendationReview: hydrateRecommendationReview(item.recommendationReview, products),
   }
   return session
 }

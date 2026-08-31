@@ -1,26 +1,27 @@
 import type { Ref } from 'vue'
 import { RETAILERS } from '~/data/retailers'
 import { hydrateCartState, hydrateSearchState } from '~/domain/persistence'
-import { cartItemId, stableHash } from '~/domain/productIdentity'
+import { cartItemId, productFreshnessKey, stableHash } from '~/domain/productIdentity'
 import {
   type ProfileInput, migrateProfile, updateProfile as mergeProfile, validateProfile,
 } from '~/domain/profile/profile'
 import { applyProductEnrichment, mergeCandidate, normalizeCandidate } from '~/domain/products/productValidation'
 import { rankAndDiversifyProducts } from '~/domain/products/productRanking'
 import { evaluateMissionFulfillment } from '~/domain/research/fulfillment'
+import { archiveReviewedSearch, cloneResearchHistory, hydrateResearchHistory } from '~/domain/research/history'
 import { claimSearchTargets as claimTargets, createResearchTargets, getSearchCoverage } from '~/domain/research/scheduler'
 import { appendTrace } from '~/domain/research/telemetry'
 import { createSearchMission } from '~/domain/search/mission'
 import type { StorageAdapter } from '~/utils/storage'
 import {
   CART_STORAGE_KEY, LEGACY_CART_STORAGE_KEYS, LEGACY_PRODUCT_STORAGE_KEYS, LEGACY_PROFILE_STORAGE_KEYS,
-  LEGACY_SEARCH_STORAGE_KEYS, PROFILE_STORAGE_KEY, SEARCH_STORAGE_KEY, safeParse,
+  LEGACY_SEARCH_STORAGE_KEYS, PROFILE_STORAGE_KEY, RESEARCH_HISTORY_STORAGE_KEY, SEARCH_STORAGE_KEY, safeParse,
 } from '~/utils/storage'
 import { emptySearchState } from '~/types/thread'
 import type {
   ActionSource, AddToCartResult, CartState, CartSummary, GetProductsInput, Product,
   ProductCandidateInput, ProductEnrichmentInput, PublishCandidatesResult, ResearchTarget,
-  SearchSession, SearchState, StyleProfile,
+  RecommendationReview, RecommendationReviewResolution, SearchMissionInput, SearchSession, SearchState, StyleProfile,
 } from '~/types/thread'
 
 export { validateProfile }
@@ -34,6 +35,7 @@ export function validateAgentStyleProfile(input: ProfileInput): StyleProfile {
 }
 
 export const SEARCH_SESSION_PRODUCT_LIMIT = 600
+export const RECOMMENDATION_REVIEW_WINDOW_MS = 2 * 60 * 1000
 
 export interface ThreadActionDependencies {
   profile: Ref<StyleProfile | null>
@@ -105,6 +107,14 @@ function cloneSession(session: SearchSession): SearchSession {
       })),
     },
     telemetry: session.telemetry.map(event => ({ ...event, details: event.details ? { ...event.details } : undefined })),
+    recommendationReview: session.recommendationReview
+      ? {
+          ...session.recommendationReview,
+          productIds: [...session.recommendationReview.productIds],
+          likedProductIds: [...session.recommendationReview.likedProductIds],
+          rejectedProductIds: [...session.recommendationReview.rejectedProductIds],
+        }
+      : undefined,
   }
 }
 
@@ -112,7 +122,33 @@ function terminalTarget(target: ResearchTarget): boolean {
   return ['complete', 'no-results', 'failed', 'cancelled', 'skipped'].includes(target.status)
 }
 
+function createRecommendationReview(session: SearchSession, now: string): RecommendationReview | undefined {
+  const productIds = session.fulfillment.selectedProductIds.length
+    ? session.fulfillment.selectedProductIds
+    : session.products.map(product => product.id)
+  if (!productIds.length) return undefined
+  return {
+    status: 'pending',
+    productIds: [...new Set(productIds)],
+    likedProductIds: [],
+    rejectedProductIds: [],
+    startedAt: now,
+    deadlineAt: new Date(Date.parse(now) + RECOMMENDATION_REVIEW_WINDOW_MS).toISOString(),
+    completedAt: null,
+    resolution: null,
+    replacementSearchId: null,
+  }
+}
+
 export function createThreadActions(deps: ThreadActionDependencies) {
+  function readResearchHistory() {
+    return hydrateResearchHistory(safeParse(deps.storage.getItem(RESEARCH_HISTORY_STORAGE_KEY)))
+  }
+
+  function persistResearchHistory(history: ReturnType<typeof readResearchHistory>): void {
+    deps.storage.setItem(RESEARCH_HISTORY_STORAGE_KEY, JSON.stringify(history))
+  }
+
   function persistProfile(): void {
     if (deps.profile.value) deps.storage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(deps.profile.value))
     else deps.storage.removeItem(PROFILE_STORAGE_KEY)
@@ -143,6 +179,58 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     return committed
   }
 
+  function reviewNextAction(session: SearchSession): 'review_recommendations' | 'research_again' | 'get_products' {
+    if (session.recommendationReview?.status === 'pending') return 'review_recommendations'
+    if (session.recommendationReview?.status === 'accepted') return 'research_again'
+    return 'get_products'
+  }
+
+  function finalizeRecommendationReview(
+    session: SearchSession,
+    resolution: RecommendationReviewResolution,
+    likedProductIds: string[],
+    rejectedProductIds: string[],
+    now: string,
+  ): SearchSession {
+    if (session !== deps.search.value.activeSearch) throw new Error('Only the current mission can be reviewed.')
+    const review = session.recommendationReview
+    if (!review || review.status !== 'pending') throw new Error('This recommendation review is no longer pending.')
+    const presented = new Set(review.productIds)
+    if (![...likedProductIds, ...rejectedProductIds].every(productId => presented.has(productId))) {
+      throw new Error('Review decisions must reference products presented by this mission.')
+    }
+    const reviewed = commitSession({
+      ...session,
+      recommendationReview: {
+        ...review,
+        status: rejectedProductIds.length ? 'replacement-started' : 'accepted',
+        likedProductIds: [...new Set(likedProductIds)],
+        rejectedProductIds: [...new Set(rejectedProductIds)],
+        completedAt: now,
+        resolution,
+      },
+    }, now)
+    persistResearchHistory(archiveReviewedSearch(readResearchHistory(), reviewed, likedProductIds, resolution, now))
+    return reviewed
+  }
+
+  function expireRecommendationReview(searchId?: string, now = new Date().toISOString()) {
+    const session = currentSession(searchId)
+    const review = session.recommendationReview
+    if (session !== deps.search.value.activeSearch) {
+      return { expired: false, searchId: session.id, review: review ? { ...review } : null, nextAction: reviewNextAction(session) }
+    }
+    if (!review || review.status !== 'pending') {
+      return { expired: false, searchId: session.id, review: review ? { ...review } : null, nextAction: reviewNextAction(session) }
+    }
+    if (Date.parse(now) < Date.parse(review.deadlineAt)) {
+      return { expired: false, searchId: session.id, review: { ...review }, nextAction: 'review_recommendations' as const }
+    }
+    const reviewed = finalizeRecommendationReview(session, 'timeout-accepted', review.productIds, [], now)
+    deps.notify?.('Review time elapsed, so THREAD saved the current recommendations as accepted.')
+    return { expired: true, searchId: reviewed.id, review: { ...reviewed.recommendationReview! }, nextAction: 'research_again' as const }
+  }
+
   function hydrate(): void {
     if (deps.hydrated.value) return
     const currentProfile = migrateProfile(safeParse(deps.storage.getItem(PROFILE_STORAGE_KEY)))
@@ -161,6 +249,14 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       .map(key => safeParse(deps.storage.getItem(key)))
       .find(value => value !== null)
     deps.search.value = hydrateSearchState(currentSearchValue ?? legacySearchValue)
+    const hydratedSession = deps.search.value.activeSearch
+    if (hydratedSession && hydratedSession.status !== 'active' && hydratedSession.products.length && !hydratedSession.recommendationReview) {
+      const now = new Date().toISOString()
+      deps.search.value = {
+        ...deps.search.value,
+        activeSearch: { ...hydratedSession, recommendationReview: createRecommendationReview(hydratedSession, now) },
+      }
+    }
     deps.hydrated.value = true
     persistProfile()
     persistCart()
@@ -228,6 +324,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       PROFILE_STORAGE_KEY,
       CART_STORAGE_KEY,
       SEARCH_STORAGE_KEY,
+      RESEARCH_HISTORY_STORAGE_KEY,
       ...LEGACY_SEARCH_STORAGE_KEYS,
       ...LEGACY_PROFILE_STORAGE_KEYS,
       ...LEGACY_CART_STORAGE_KEYS,
@@ -240,9 +337,14 @@ export function createThreadActions(deps: ThreadActionDependencies) {
   }
 
   function startShoppingSearch(input: Parameters<typeof createSearchMission>[0]) {
+    const existing = deps.search.value.activeSearch
+    if (existing?.recommendationReview?.status === 'pending') expireRecommendationReview(existing.id)
     const previous = deps.search.value.activeSearch
     if (previous?.status === 'active') {
       throw new Error('A shopping search is already active. Complete, satisfy, cancel, or abandon it before starting another mission.')
+    }
+    if (previous?.recommendationReview?.status === 'pending') {
+      throw new Error('Review the current recommendations before starting another mission.')
     }
     const now = new Date().toISOString()
     const mission = createSearchMission(input, deps.profile.value, now)
@@ -283,6 +385,10 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       searchId,
       mission: session.mission,
       coverage: getSearchCoverage(session),
+      freshness: {
+        excludedProductCount: readResearchHistory().seenProductKeys.length,
+        styleCues: readResearchHistory().entries.flatMap(entry => entry.products.map(product => product.name)).slice(0, 8),
+      },
       nextAction: 'claim_search_targets' as const,
     }
   }
@@ -340,9 +446,16 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     const rejected: Array<{ index: number; reason: string }> = []
     const registry = new Map(session.products.map(product => [product.id, product]))
     let newProductCount = 0
+    const previouslySeen = new Set([
+      ...readResearchHistory().seenProductKeys,
+      ...deps.search.value.recentSearches.flatMap(previous => previous.products.map(product => productFreshnessKey(product.url))),
+    ])
     input.candidates.forEach((candidate, index) => {
       session = appendTrace(session, { type: 'candidate_received', targetId: target.id, message: `Candidate ${index + 1} received from ${target.name}.`, at: now })
       try {
+        if (typeof candidate.url === 'string' && previouslySeen.has(productFreshnessKey(candidate.url))) {
+          throw new Error('Product was already shown in a previous mission. Publish a fresh product link instead.')
+        }
         const normalized = normalizeCandidate(candidate, session, target, now)
         const existing = registry.get(normalized.id)
         if (!existing && registry.size >= SEARCH_SESSION_PRODUCT_LIMIT) {
@@ -483,6 +596,12 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       session = appendTrace(session, { type: 'search_completed', message: 'All planned research targets are resolved.', at: now })
       deps.notify?.('Retailer research is complete.')
     }
+    if (session.status !== 'active' && !session.recommendationReview) {
+      session = { ...session, recommendationReview: createRecommendationReview(session, now) }
+      if (session.recommendationReview) {
+        deps.notify?.('Research is complete. Review the recommendations before THREAD saves them.')
+      }
+    }
     session = commitSession(session, now)
     const coverage = getSearchCoverage(session)
     return {
@@ -491,7 +610,130 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       coverage,
       searchStatus: session.status,
       fulfillment: session.fulfillment,
-      nextAction: session.status !== 'active' ? 'get_products' as const : coverage.queuedTargets ? 'claim_search_targets' as const : 'complete_search_target' as const,
+      nextAction: session.status !== 'active' ? reviewNextAction(session) : coverage.queuedTargets ? 'claim_search_targets' as const : 'complete_search_target' as const,
+    }
+  }
+
+  function replacementMissionInput(session: SearchSession, productIds: readonly string[]): SearchMissionInput {
+    const requested = new Set(productIds)
+    const rejectedProducts = session.products.filter(product => requested.has(product.id))
+    if (!rejectedProducts.length) throw new Error('Choose at least one presented product to replace.')
+    const replacementNeeds = session.mission.needs.flatMap((need) => {
+      const selectedForNeed = session.fulfillment.needs.find(item => item.needId === need.id)?.selectedProductIds ?? []
+      const quantity = selectedForNeed.filter(productId => requested.has(productId)).length
+        || rejectedProducts.filter(product => product.needIds.includes(need.id)).length
+      if (!quantity) return []
+      const productNames = rejectedProducts.filter(product => product.needIds.includes(need.id)).map(product => product.name)
+      return [{
+        intent: `fresh alternatives for ${need.intent}`,
+        queries: [...new Set([
+          ...need.queries.map(query => `${query} alternative`),
+          ...productNames.map(name => `alternative to ${name}`),
+        ])].slice(0, 10),
+        categories: [...need.categories],
+        required: need.required,
+        quantity,
+        budgetCad: need.budgetCad,
+      }]
+    })
+    if (!replacementNeeds.length) {
+      replacementNeeds.push(...rejectedProducts.map(product => ({
+        intent: `fresh alternative for ${product.name}`,
+        queries: [`alternative to ${product.name}`],
+        categories: product.category ? [product.category] : [],
+        required: true,
+        quantity: 1,
+        budgetCad: product.priceCad,
+      })))
+    }
+    const likedNames = session.recommendationReview?.likedProductIds
+      .map(productId => session.products.find(product => product.id === productId)?.name)
+      .filter((name): name is string => Boolean(name)) ?? []
+    const cue = likedNames.length ? ` Use the accepted pieces as style cues: ${likedNames.join(', ')}.` : ''
+    return {
+      rawPrompt: `Fresh alternatives for ${rejectedProducts.map(product => product.name).join(', ')}. Original request: ${session.mission.rawPrompt}`,
+      shoppingDepartment: session.mission.shoppingDepartment,
+      stylePreferences: [...session.mission.stylePreferences],
+      context: {
+        ...session.mission.context,
+        climateHints: [...session.mission.context.climateHints],
+        occasions: [...session.mission.context.occasions],
+        notes: `${session.mission.context.notes ?? ''}${cue} Do not repeat products shown in earlier missions.`.trim().slice(0, 300),
+      },
+      needs: replacementNeeds,
+      constraints: {
+        ...session.mission.constraints,
+        categories: [...new Set(replacementNeeds.flatMap(need => need.categories))],
+        retailerIds: [...session.mission.constraints.retailerIds],
+        excludedRetailerIds: [...session.mission.constraints.excludedRetailerIds],
+      },
+    }
+  }
+
+  function reviewRecommendations(input: {
+    searchId: string
+    decision: 'accept-all' | 'replace-selected' | 'replace-all'
+    rejectedProductIds?: string[]
+  }) {
+    let session = currentSession(input.searchId)
+    if (session !== deps.search.value.activeSearch) throw new Error('Only the current mission can be reviewed.')
+    expireRecommendationReview(session.id)
+    session = currentSession(input.searchId)
+    const review = session.recommendationReview
+    if (!review || review.status !== 'pending') throw new Error('This recommendation review is no longer pending.')
+    if (input.decision === 'accept-all') {
+      const reviewed = finalizeRecommendationReview(session, 'user-accepted', review.productIds, [], new Date().toISOString())
+      deps.notify?.('Recommendations accepted and saved locally.')
+      return { searchId: reviewed.id, review: { ...reviewed.recommendationReview! }, nextAction: 'research_again' as const }
+    }
+    const rejectedProductIds = input.decision === 'replace-all'
+      ? [...review.productIds]
+      : [...new Set(input.rejectedProductIds ?? [])]
+    if (!rejectedProductIds.length) throw new Error('Choose at least one product to replace.')
+    if (!rejectedProductIds.every(productId => review.productIds.includes(productId))) {
+      throw new Error('Replacement product IDs must come from the presented recommendations.')
+    }
+    const rejected = new Set(rejectedProductIds)
+    const likedProductIds = review.productIds.filter(productId => !rejected.has(productId))
+    const resolution = input.decision === 'replace-all' ? 'replace-all' : 'replace-selected'
+    const reviewed = finalizeRecommendationReview(session, resolution, likedProductIds, rejectedProductIds, new Date().toISOString())
+    const replacement = startShoppingSearch(replacementMissionInput(reviewed, rejectedProductIds))
+    const archivedSource = deps.search.value.recentSearches.find(candidate => candidate.id === reviewed.id)
+    if (archivedSource?.recommendationReview) {
+      deps.search.value = {
+        ...deps.search.value,
+        recentSearches: deps.search.value.recentSearches.map(candidate => candidate.id === reviewed.id
+          ? {
+              ...candidate,
+              recommendationReview: { ...candidate.recommendationReview!, replacementSearchId: replacement.searchId },
+            }
+          : candidate),
+      }
+      persistSearch()
+    }
+    deps.notify?.(`Fresh research started for ${rejectedProductIds.length} replacement${rejectedProductIds.length === 1 ? '' : 's'}.`)
+    return { searchId: reviewed.id, review: { ...reviewed.recommendationReview!, replacementSearchId: replacement.searchId }, replacement, nextAction: 'claim_search_targets' as const }
+  }
+
+  function researchAgain(input: { searchId: string; productIds?: string[] }) {
+    const session = currentSession(input.searchId)
+    if (session.recommendationReview?.status === 'pending') {
+      throw new Error('Review the current recommendations before researching again.')
+    }
+    if (deps.search.value.activeSearch?.status === 'active') throw new Error('Finish the active mission before researching again.')
+    const productIds = input.productIds?.length
+      ? [...new Set(input.productIds)]
+      : session.recommendationReview?.productIds ?? session.fulfillment.selectedProductIds
+    const replacement = startShoppingSearch(replacementMissionInput(session, productIds))
+    return { sourceSearchId: session.id, replacement, nextAction: 'claim_search_targets' as const }
+  }
+
+  function getResearchHistory() {
+    const history = cloneResearchHistory(readResearchHistory())
+    return {
+      ...history,
+      seenProductCount: history.seenProductKeys.length,
+      styleCues: history.entries.flatMap(entry => entry.products.map(product => product.name)).slice(0, 12),
     }
   }
 
@@ -518,6 +760,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
   }
 
   function getSearchStatus(searchId?: string) {
+    expireRecommendationReview(searchId)
     const session = currentSession(searchId)
     return {
       searchId: session.id,
@@ -530,8 +773,9 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       updatedAt: session.updatedAt,
       completedAt: session.completedAt,
       cancellationReason: session.cancellationReason,
+      recommendationReview: cloneSession(session).recommendationReview ?? null,
       nextAction: session.status !== 'active'
-        ? 'get_products'
+        ? reviewNextAction(session)
         : session.targets.some(target => target.status === 'queued')
           ? 'claim_search_targets'
           : 'complete_search_target',
@@ -662,6 +906,10 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     cancelSearch,
     getSearchStatus,
     getProducts,
+    reviewRecommendations,
+    expireRecommendationReview,
+    researchAgain,
+    getResearchHistory,
     getProductById,
     getVisibleProducts,
     getRetailers,

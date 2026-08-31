@@ -22,6 +22,7 @@ const filteredProducts = computed(() => filterProducts(products.value, filters.v
 const cartSummary = computed(() => actions.getCart())
 const showDebug = computed(() => import.meta.dev && route.query.debug === 'true')
 const isSearching = computed(() => session.value?.status === 'active')
+const reviewPending = computed(() => session.value?.recommendationReview?.status === 'pending')
 
 watch(() => session.value?.id, () => { filters.value = emptyResultFilters() })
 
@@ -64,6 +65,55 @@ function stopResearch() {
   }
 }
 
+function acceptRecommendations() {
+  if (!session.value) return
+  actionError.value = ''
+  try {
+    actions.reviewRecommendations({ searchId: session.value.id, decision: 'accept-all' })
+  } catch (error) {
+    actionError.value = error instanceof Error ? error.message : 'Could not save this review.'
+  }
+}
+
+function replaceRecommendations(productIds: string[]) {
+  if (!session.value) return
+  actionError.value = ''
+  try {
+    actions.reviewRecommendations({ searchId: session.value.id, decision: 'replace-selected', rejectedProductIds: productIds })
+  } catch (error) {
+    actionError.value = error instanceof Error ? error.message : 'Could not start replacement research.'
+  }
+}
+
+function replaceAllRecommendations() {
+  if (!session.value) return
+  actionError.value = ''
+  try {
+    actions.reviewRecommendations({ searchId: session.value.id, decision: 'replace-all' })
+  } catch (error) {
+    actionError.value = error instanceof Error ? error.message : 'Could not restart this research.'
+  }
+}
+
+function researchAgain() {
+  if (!session.value) return
+  actionError.value = ''
+  try {
+    actions.researchAgain({ searchId: session.value.id })
+  } catch (error) {
+    actionError.value = error instanceof Error ? error.message : 'Could not start fresh research.'
+  }
+}
+
+function expireReview() {
+  if (!session.value) return
+  try {
+    actions.expireRecommendationReview(session.value.id)
+  } catch (error) {
+    actionError.value = error instanceof Error ? error.message : 'Could not conclude this review.'
+  }
+}
+
 function resetWorkspace() {
   actions.resetWorkspace()
   resetOpen.value = false
@@ -91,7 +141,7 @@ function resetWorkspace() {
               <p class="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-thread-muted">
                 <LoaderCircle v-if="isSearching" class="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                 <Sparkles v-else-if="session" class="h-3.5 w-3.5" aria-hidden="true" />
-                {{ isSearching ? 'Browser agent researching now' : session ? 'Saved shopping mission' : 'Ready for your first mission' }}
+                {{ isSearching ? 'Browser agent researching now' : reviewPending ? 'Recommendations ready for review' : session ? 'Saved shopping mission' : 'Ready for your first mission' }}
               </p>
               <h2 id="results-heading" class="mt-1 max-w-6xl font-editorial text-4xl leading-tight sm:text-5xl">
                 {{ session ? `“${session.mission.rawPrompt}”` : 'Your discoveries will live here' }}
@@ -106,6 +156,15 @@ function resetWorkspace() {
           <EmptyState v-if="!session" title="Nothing here—yet." description="Start a shopping mission with your browser agent. THREAD will coordinate retailer research and preserve grounded product candidates here." />
           <template v-else>
             <ResearchProgress :session="session" @stop="stopResearch" />
+            <RecommendationReview
+              v-if="session.recommendationReview"
+              :session="session"
+              @accept="acceptRecommendations"
+              @replace="replaceRecommendations"
+              @replace-all="replaceAllRecommendations"
+              @research-again="researchAgain"
+              @expired="expireReview"
+            />
             <ProductFilters v-if="products.length" v-model="filters" :products="products" class="mb-7" />
             <ProductGrid :products="filteredProducts" :loading="isSearching" @select="selectedProduct = $event" @add="quickAdd" />
             <EmptyState v-if="!isSearching && !products.length" title="No accepted candidates." description="This research pass ended without grounded products. Review target reasons in the research plan or start a broader mission." />

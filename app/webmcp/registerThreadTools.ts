@@ -7,9 +7,12 @@ import { enrichProductTool } from '~/webmcp/tools/enrichProduct'
 import { getCartTool } from '~/webmcp/tools/getCart'
 import { getProductsTool } from '~/webmcp/tools/getProducts'
 import { getProfileTool } from '~/webmcp/tools/getProfile'
+import { getResearchHistoryTool } from '~/webmcp/tools/getResearchHistory'
 import { getSearchStatusTool } from '~/webmcp/tools/getSearchStatus'
 import { publishCandidatesTool } from '~/webmcp/tools/publishCandidates'
 import { removeFromCartTool } from '~/webmcp/tools/removeFromCart'
+import { researchAgainTool } from '~/webmcp/tools/researchAgain'
+import { reviewRecommendationsTool } from '~/webmcp/tools/reviewRecommendations'
 import { setupProfileTool } from '~/webmcp/tools/setupProfile'
 import { startShoppingSearchTool } from '~/webmcp/tools/startShoppingSearch'
 import { updateProfileTool } from '~/webmcp/tools/updateProfile'
@@ -27,6 +30,9 @@ export const THREAD_TOOL_NAMES = [
   'complete_search_target',
   'get_search_status',
   'get_products',
+  'review_recommendations',
+  'research_again',
+  'get_research_history',
   'cancel_search',
   'get_cart',
   'add_to_cart',
@@ -47,6 +53,9 @@ export function createThreadToolDefinitions(actions: ThreadActions) {
     completeSearchTargetTool(actions),
     getSearchStatusTool(actions),
     getProductsTool(actions),
+    reviewRecommendationsTool(actions),
+    researchAgainTool(actions),
+    getResearchHistoryTool(actions),
     cancelSearchTool(actions),
     getCartTool(actions),
     addToCartTool(actions),
