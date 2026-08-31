@@ -19,7 +19,6 @@ export default defineNuxtConfig({
       ],
     },
   },
-  nitro: { preset: 'static' },
   typescript: { strict: true, typeCheck: true },
   tailwindcss: { cssPath: '~/assets/css/main.css' },
 })
