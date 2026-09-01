@@ -224,12 +224,12 @@ export interface Product {
 export interface ProductCandidateInput {
   url: string
   name: string
+  image: string
   retailer?: string
   brand?: string
   nativePrice?: number
   nativeCurrency?: string
   priceCad?: number
-  image?: string
   imageWidth?: number
   imageHeight?: number
   category?: ProductCategory

@@ -23,6 +23,7 @@ async function discoverTools() {
 }
 
 function candidateFromFixture(product: typeof PRODUCTS[number]) {
+  if (!product.image) throw new Error(`Debug fixture ${product.name} is missing its required product image.`)
   return {
     url: product.url,
     name: product.name,

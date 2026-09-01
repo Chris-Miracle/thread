@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BadgeCheck, ExternalLink, Image as ImageIcon, Plus } from 'lucide-vue-next'
+import { BadgeCheck, ExternalLink, Plus } from 'lucide-vue-next'
 import type { Product } from '~/types/thread'
 import { formatMoney } from '~/utils/money'
 
@@ -16,20 +16,16 @@ const observedLabel = computed(() => new Date(props.product.observedAt).toLocale
 <template>
   <article class="group mb-3 inline-block w-full min-w-0 break-inside-avoid overflow-hidden border border-thread-line bg-thread-surface align-top sm:mb-4">
     <div class="relative overflow-hidden bg-thread-soft">
-      <button v-if="product.image" type="button" class="block w-full cursor-pointer" :aria-label="`Inspect ${product.name}`" @click="emit('select')">
-        <img
+      <button type="button" class="block w-full cursor-pointer" :aria-label="`Inspect ${product.name}`" @click="emit('select')">
+        <ProductImage
           :src="product.image"
           :alt="`${product.name}${product.brand ? ` by ${product.brand}` : ''}`"
           :width="product.imageWidth ?? 720"
           :height="product.imageHeight ?? 900"
-          loading="lazy"
           class="h-auto w-full object-cover transition duration-300 ease-out group-hover:scale-[1.015]"
-          referrerpolicy="no-referrer"
-        >
-      </button>
-      <button v-else type="button" class="flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center gap-2 text-thread-muted" :aria-label="`Inspect ${product.name}`" @click="emit('select')">
-        <ImageIcon class="h-6 w-6" :stroke-width="1.4" aria-hidden="true" />
-        <span class="text-[11px]">Image not published</span>
+          fallback-class="flex aspect-[4/3] w-full items-center justify-center bg-thread-soft text-thread-muted"
+          :fallback-label="`Product preview unavailable for ${product.name}`"
+        />
       </button>
       <button
         type="button"

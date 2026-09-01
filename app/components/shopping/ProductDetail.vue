@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ExternalLink, Image as ImageIcon, ShoppingBag, X } from 'lucide-vue-next'
+import { ExternalLink, ShoppingBag, X } from 'lucide-vue-next'
 import type { Product } from '~/types/thread'
 import { formatMoney } from '~/utils/money'
 
@@ -54,11 +54,15 @@ onUnmounted(() => {
       </button>
       <div class="grid md:grid-cols-2">
         <div class="min-h-72 bg-thread-soft">
-          <img v-if="product.image" :src="product.image" :alt="product.name" :width="product.imageWidth ?? 720" :height="product.imageHeight ?? 900" class="h-auto max-h-[78dvh] w-full object-contain" referrerpolicy="no-referrer">
-          <div v-else class="flex min-h-72 flex-col items-center justify-center gap-3 text-thread-muted md:min-h-full">
-            <ImageIcon class="h-8 w-8" :stroke-width="1.3" aria-hidden="true" />
-            <span class="text-sm">Image not published</span>
-          </div>
+          <ProductImage
+            :src="product.image"
+            :alt="product.name"
+            :width="product.imageWidth ?? 720"
+            :height="product.imageHeight ?? 900"
+            class="h-auto max-h-[78dvh] w-full object-contain"
+            fallback-class="flex min-h-72 w-full items-center justify-center bg-thread-soft text-thread-muted md:min-h-full"
+            :fallback-label="`Product preview unavailable for ${product.name}`"
+          />
         </div>
         <div class="p-6 pt-16 sm:p-9 sm:pt-16">
           <div class="flex items-center gap-2.5">

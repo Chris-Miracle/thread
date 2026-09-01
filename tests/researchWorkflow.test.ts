@@ -83,10 +83,10 @@ describe('research queue lifecycle', () => {
       searchId: started.searchId,
       targetId: target.id,
       candidates: [
-        { url: `${base}-shirt`, name: 'Summer shirt', category: 'tops', shoppingDepartment: 'men', priceCad: 40, needIds: [clothesNeed.id] },
-        { url: `${base}-trouser`, name: 'Relaxed trousers', category: 'bottoms', shoppingDepartment: 'men', priceCad: 40, needIds: [clothesNeed.id] },
-        { url: `${base}-polo`, name: 'Knit polo', category: 'tops', shoppingDepartment: 'men', priceCad: 40, needIds: [clothesNeed.id] },
-        { url: `${base}-fragrance`, name: 'Weekend fragrance', category: 'fragrance', shoppingDepartment: 'men', priceCad: 50, needIds: [fragranceNeed.id] },
+        { url: `${base}-shirt`, name: 'Summer shirt', image: `${base}-shirt.jpg`, category: 'tops', shoppingDepartment: 'men', priceCad: 40, needIds: [clothesNeed.id] },
+        { url: `${base}-trouser`, name: 'Relaxed trousers', image: `${base}-trouser.jpg`, category: 'bottoms', shoppingDepartment: 'men', priceCad: 40, needIds: [clothesNeed.id] },
+        { url: `${base}-polo`, name: 'Knit polo', image: `${base}-polo.jpg`, category: 'tops', shoppingDepartment: 'men', priceCad: 40, needIds: [clothesNeed.id] },
+        { url: `${base}-fragrance`, name: 'Weekend fragrance', image: `${base}-fragrance.jpg`, category: 'fragrance', shoppingDepartment: 'men', priceCad: 50, needIds: [fragranceNeed.id] },
       ],
     })
     expect(result.rejected).toEqual([])
@@ -307,7 +307,7 @@ describe('candidate integrity and hard constraints', () => {
     const candidate = harness.actions.publishCandidates({
       searchId: started.searchId,
       targetId: target.id,
-      candidates: [{ url: uniqlo.url, name: uniqlo.name }],
+      candidates: [{ url: uniqlo.url, name: uniqlo.name, image: uniqlo.image! }],
     }).accepted[0]!
     expect(candidate.stage).toBe('candidate')
     const enriched = harness.actions.enrichProduct(started.searchId, {

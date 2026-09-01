@@ -9,8 +9,7 @@ const emit = defineEmits<{ remove: [] }>()
 
 <template>
   <article class="grid grid-cols-[80px_1fr_auto] gap-3 border-b border-thread-line py-4">
-    <img v-if="item.product.image" :src="item.product.image" :alt="item.product.name" width="160" height="200" loading="lazy" class="h-24 w-20 bg-thread-soft object-cover">
-    <div v-else class="h-24 w-20 bg-thread-soft" aria-hidden="true" />
+    <ProductImage :src="item.product.image" :alt="item.product.name" :width="160" :height="200" class="h-24 w-20 bg-thread-soft object-cover" fallback-class="flex h-24 w-20 items-center justify-center bg-thread-soft text-thread-muted" :fallback-label="`Product preview unavailable for ${item.product.name}`" />
     <div class="min-w-0 py-0.5">
       <h4 class="text-sm font-medium leading-5">{{ item.product.name }}</h4>
       <p v-if="item.color || item.size" class="mt-1 text-xs text-thread-muted">

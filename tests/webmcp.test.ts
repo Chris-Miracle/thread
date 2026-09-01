@@ -53,6 +53,17 @@ describe('WebMCP mission-oriented surface', () => {
     tools.forEach(tool => assertClosedObjects(tool.inputSchema))
   })
 
+  it('requires a product image before a candidate can be published', () => {
+    const publish = createThreadToolDefinitions(makeActions().actions).find(tool => tool.name === 'publish_candidates')!
+    const candidateSchema = publish.inputSchema.properties?.candidates?.items
+    expect(candidateSchema?.required).toEqual(expect.arrayContaining(['url', 'name', 'image']))
+    expect(() => publish.execute({
+      searchId: 'search:test',
+      targetId: 'target:test',
+      candidates: [{ url: 'https://example.test/product', name: 'Image-less product' }],
+    })).toThrow('image is required')
+  })
+
   it('executes WebMCP mutations through the same shared action state as the UI', async () => {
     const harness = makeActions()
     const tools = createThreadToolDefinitions(harness.actions)

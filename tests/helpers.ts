@@ -54,7 +54,7 @@ export function candidateFromFixture(product: Product): ProductCandidateInput {
     nativePrice: product.nativePrice,
     nativeCurrency: product.nativeCurrency,
     priceCad: product.priceCad,
-    image: product.image,
+    image: product.image ?? 'https://images.example.test/thread-product.jpg',
     category: product.category,
     shoppingDepartment: product.shoppingDepartment,
     needIds: product.needIds.length ? product.needIds : undefined,

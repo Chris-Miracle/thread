@@ -71,7 +71,7 @@ onUnmounted(() => {
         <div class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           <label v-for="product in products" :key="product.id" class="flex cursor-pointer items-center gap-3 border border-thread-line bg-thread-canvas p-3 transition hover:border-thread-ink">
             <input v-model="selectedIds" type="checkbox" :value="product.id" class="h-4 w-4 shrink-0 accent-thread-ink" :aria-label="`Replace ${product.name}`">
-            <img v-if="product.image" :src="product.image" alt="" width="48" height="56" class="h-14 w-12 shrink-0 bg-thread-soft object-cover">
+            <ProductImage :src="product.image" alt="" :width="48" :height="56" class="h-14 w-12 shrink-0 bg-thread-soft object-cover" fallback-class="flex h-14 w-12 shrink-0 items-center justify-center bg-thread-soft text-thread-muted" />
             <div class="min-w-0">
               <p class="truncate text-sm font-medium">{{ product.name }}</p>
               <p class="mt-1 text-xs text-thread-muted">{{ product.retailer }}<template v-if="product.priceCad"> · CAD {{ product.priceCad.toFixed(2) }}</template></p>

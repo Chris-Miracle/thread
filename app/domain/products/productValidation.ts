@@ -139,6 +139,8 @@ export function normalizeCandidate(
   const shoppingDepartment = input.shoppingDepartment
   if (shoppingDepartment !== undefined && !departmentIds.has(shoppingDepartment)) throw new Error('Unsupported shoppingDepartment.')
   const image = optionalHttpUrl(input.image, 'image')
+  if (!image) throw new Error('image is required. Publish a direct product image URL from the retailer page.')
+  if (image === canonicalUrl) throw new Error('image must be a direct product image URL, not the product page URL.')
   const imageWidth = positiveNumber(input.imageWidth, 'imageWidth')
   const imageHeight = positiveNumber(input.imageHeight, 'imageHeight')
   if ((imageWidth === undefined) !== (imageHeight === undefined)) throw new Error('imageWidth and imageHeight must be provided together.')
