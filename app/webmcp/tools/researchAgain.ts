@@ -8,7 +8,7 @@ export function researchAgainTool(actions: ThreadActions): WebMCPToolDefinition 
   return {
     name: 'research_again',
     title: 'Research fresh alternatives again',
-    description: 'Start another research pass from an accepted mission. Omit productIds to refresh the whole recommendation set, or provide presented product IDs to refresh only those needs. Previously shown product families are excluded.',
+    description: 'Start another research pass from an accepted mission. Omit productIds to refresh the whole set, or provide presented product IDs to replace only those items while preserving every other accepted product in the visible edit. Previously shown product families are excluded.',
     inputSchema: {
       type: 'object',
       properties: {

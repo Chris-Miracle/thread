@@ -7,7 +7,7 @@ export function getResearchHistoryTool(actions: ThreadActions): WebMCPToolDefini
   return {
     name: 'get_research_history',
     title: 'Get saved research history',
-    description: 'Read locally saved accepted mission prompts and products, plus compact style cues and the count of product families excluded from future research.',
+    description: 'Read locally saved completed mission prompts and their final accepted product collections, plus compact style cues and the count of product families excluded from future research. Replacement chains are saved as one merged root mission, not disconnected partial missions.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true, untrustedContentHint: true },
     execute() {

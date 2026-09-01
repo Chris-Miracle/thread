@@ -2,6 +2,7 @@
 import { LoaderCircle, Sparkles } from 'lucide-vue-next'
 import { filterProducts } from '~/domain/productFilters'
 import type { ProfileInput } from '~/domain/profile/profile'
+import { getSessionCollectionProducts, getSessionRootPrompt } from '~/domain/research/collection'
 import { emptyResultFilters, type Product } from '~/types/thread'
 
 const { profile } = useThreadProfile()
@@ -17,12 +18,19 @@ const selectedProduct = ref<Product | null>(null)
 const actionError = ref('')
 const filters = ref(emptyResultFilters())
 const session = computed(() => search.value.activeSearch)
-const products = computed(() => session.value?.products ?? [])
+const products = computed(() => session.value ? getSessionCollectionProducts(session.value) : [])
 const filteredProducts = computed(() => filterProducts(products.value, filters.value))
 const cartSummary = computed(() => actions.getCart())
 const showDebug = computed(() => import.meta.dev && route.query.debug === 'true')
 const isSearching = computed(() => session.value?.status === 'active')
 const reviewPending = computed(() => session.value?.recommendationReview?.status === 'pending')
+const hasCurrentMission = computed(() => Boolean(session.value && (isSearching.value || reviewPending.value)))
+const currentPrompt = computed(() => session.value ? getSessionRootPrompt(session.value) : '')
+const replacementCount = computed(() => session.value?.replacementContext?.replacedProductIds.length ?? 0)
+const savedEntries = computed(() => {
+  search.value.activeSearch?.revision
+  return actions.getResearchHistory().entries
+})
 
 watch(() => session.value?.id, () => { filters.value = emptyResultFilters() })
 
@@ -138,26 +146,34 @@ function resetWorkspace() {
         <section class="mt-14 sm:mt-20" aria-labelledby="results-heading">
           <div class="mb-6 flex flex-col gap-4 border-b border-thread-line pb-4 sm:flex-row sm:items-end sm:justify-between">
             <div class="min-w-0">
-              <p class="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-thread-muted">
+              <p class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em]" :class="hasCurrentMission ? 'text-thread-accent' : 'text-thread-muted'">
                 <LoaderCircle v-if="isSearching" class="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                <Sparkles v-else-if="session" class="h-3.5 w-3.5" aria-hidden="true" />
-                {{ isSearching ? 'Browser agent researching now' : reviewPending ? 'Recommendations ready for review' : session ? 'Saved shopping mission' : 'Ready for your first mission' }}
+                <Sparkles v-else class="h-3.5 w-3.5" aria-hidden="true" />
+                <template v-if="hasCurrentMission">
+                  Current mission<template v-if="replacementCount"> · Replacing {{ replacementCount }} {{ replacementCount === 1 ? 'item' : 'items' }}</template>
+                </template>
+                <template v-else>No current mission</template>
               </p>
               <h2 id="results-heading" class="mt-1 max-w-6xl font-editorial text-4xl leading-tight sm:text-5xl">
-                {{ session ? `“${session.mission.rawPrompt}”` : 'Your discoveries will live here' }}
+                {{ hasCurrentMission ? `“${currentPrompt}”` : 'Ready when you are.' }}
               </h2>
+              <p v-if="hasCurrentMission && replacementCount" class="mt-3 max-w-3xl text-sm leading-6 text-thread-muted">THREAD is keeping {{ session?.replacementContext?.preservedProducts.length ?? 0 }} accepted pieces visible and researching only the {{ replacementCount }} marked for replacement.</p>
             </div>
-            <p v-if="session" class="shrink-0 text-xs tabular-nums text-thread-muted">
+            <p v-if="hasCurrentMission" class="shrink-0 text-xs tabular-nums text-thread-muted">
               <strong class="font-medium text-thread-ink">{{ products.length }} ranked</strong>
               <span v-if="filteredProducts.length !== products.length"> · {{ filteredProducts.length }} shown</span>
             </p>
           </div>
 
-          <EmptyState v-if="!session" title="Nothing here—yet." description="Start a shopping mission with your browser agent. THREAD will coordinate retailer research and preserve grounded product candidates here." />
-          <template v-else>
+          <EmptyState
+            v-if="!hasCurrentMission"
+            :title="savedEntries.length ? 'Your last mission is saved below.' : 'Nothing is being researched right now.'"
+            :description="savedEntries.length ? 'Saved products and retailer links remain filterable in your mission library. Give the browser agent a new brief whenever you want a separate current mission.' : 'Start a shopping mission with your browser agent. THREAD will coordinate retailer research and preserve grounded candidates here.'"
+          />
+          <template v-else-if="session">
             <ResearchProgress :session="session" @stop="stopResearch" />
             <RecommendationReview
-              v-if="session.recommendationReview"
+              v-if="reviewPending"
               :session="session"
               @accept="acceptRecommendations"
               @replace="replaceRecommendations"
@@ -165,7 +181,7 @@ function resetWorkspace() {
               @research-again="researchAgain"
               @expired="expireReview"
             />
-            <ProductFilters v-if="products.length" v-model="filters" :products="products" class="mb-7" />
+            <ProductFilters v-if="products.length" v-model="filters" :products="products" label="Filter current edit" class="mb-7" />
             <ProductGrid :products="filteredProducts" :loading="isSearching" @select="selectedProduct = $event" @add="quickAdd" />
             <EmptyState v-if="!isSearching && !products.length" title="No accepted candidates." description="This research pass ended without grounded products. Review target reasons in the research plan or start a broader mission." />
             <EmptyState v-else-if="products.length && !filteredProducts.length" title="No products match these filters." description="Clear one or more filters to see the other ranked candidates." />
@@ -174,6 +190,8 @@ function resetWorkspace() {
             </p>
           </template>
         </section>
+
+        <SavedMissionLibrary :entries="savedEntries" @select="selectedProduct = $event" @add="quickAdd" />
       </main>
 
       <footer class="border-t border-thread-line px-4 py-7 sm:px-7 lg:px-10 2xl:px-12">

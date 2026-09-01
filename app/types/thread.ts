@@ -337,6 +337,14 @@ export interface RecommendationReview {
   replacementSearchId: string | null
 }
 
+export interface ReplacementContext {
+  rootSearchId: string
+  rootPrompt: string
+  sourceSearchId: string
+  preservedProducts: Product[]
+  replacedProductIds: string[]
+}
+
 export interface SearchSession {
   version: 1
   id: string
@@ -355,6 +363,7 @@ export interface SearchSession {
   cancellationReason: string | null
   revision: number
   recommendationReview?: RecommendationReview
+  replacementContext?: ReplacementContext
 }
 
 export interface SearchState {

@@ -8,7 +8,7 @@ export function reviewRecommendationsTool(actions: ThreadActions): WebMCPToolDef
   return {
     name: 'review_recommendations',
     title: 'Review finished recommendations',
-    description: 'Resolve the pending recommendation review after research finishes. Accept everything, replace selected product IDs, or replace the entire set. Replacement decisions immediately create a fresh mission that excludes every product link shown in prior reviewed missions.',
+    description: 'Resolve the pending recommendation review after research finishes. Accept everything, replace selected product IDs, or replace the entire set. Selective replacement removes only those IDs, keeps every other accepted item visible in the current edit, and excludes every previously shown product link from fresh research.',
     inputSchema: {
       type: 'object',
       properties: {

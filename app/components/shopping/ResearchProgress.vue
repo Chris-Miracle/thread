@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, CircleStop, ExternalLink, Search } from 'lucide-vue-next'
+import { getSessionCollectionProducts } from '~/domain/research/collection'
 import { getSearchCoverage } from '~/domain/research/scheduler'
 import type { ResearchTargetStatus, SearchSession } from '~/types/thread'
 
@@ -11,6 +12,8 @@ const resolved = computed(() => coverage.value.totalTargets - coverage.value.unr
 const progress = computed(() => coverage.value.totalTargets
   ? Math.round((resolved.value / coverage.value.totalTargets) * 100)
   : 0)
+const collectionCount = computed(() => getSessionCollectionProducts(props.session).length)
+const preservedCount = computed(() => props.session.replacementContext?.preservedProducts.length ?? 0)
 const statusLabel: Record<ResearchTargetStatus, string> = {
   queued: 'Queued',
   claimed: 'Claimed',
@@ -36,6 +39,9 @@ const statusLabel: Record<ResearchTargetStatus, string> = {
           <p class="mt-1 text-xs leading-5 text-thread-muted">
             {{ coverage.acceptedCandidateCount }} accepted · {{ coverage.rejectedCandidateCount }} rejected ·
             {{ coverage.activeTargets + coverage.claimedTargets }} active · {{ coverage.failedTargets }} failed · {{ coverage.skippedTargets }} skipped
+          </p>
+          <p v-if="session.replacementContext" class="mt-1 text-xs leading-5 text-thread-ink">
+            {{ preservedCount }} kept visible · {{ session.products.length }} fresh {{ session.products.length === 1 ? 'candidate' : 'candidates' }} · {{ collectionCount }} pieces in the current edit
           </p>
           <p v-if="session.fulfillment.selectedProductIds.length" class="mt-1 text-xs leading-5" :class="session.fulfillment.satisfied ? 'text-green-700' : 'text-thread-muted'">
             {{ session.fulfillment.selectedProductIds.length }} proposed · CAD {{ session.fulfillment.subtotalCad.toFixed(2) }}

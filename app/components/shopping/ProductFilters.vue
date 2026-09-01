@@ -2,7 +2,9 @@
 import { RotateCcw, SlidersHorizontal } from 'lucide-vue-next'
 import { PRODUCT_CATEGORIES, emptyResultFilters, type Product, type ResultFilters } from '~/types/thread'
 
-const props = defineProps<{ products: Product[]; modelValue: ResultFilters }>()
+const props = withDefaults(defineProps<{ products: Product[]; modelValue: ResultFilters; label?: string }>(), {
+  label: 'Filter products',
+})
 const emit = defineEmits<{ 'update:modelValue': [filters: ResultFilters] }>()
 
 const retailers = computed(() => [...new Set(props.products.map(product => product.retailer))].sort())
@@ -15,10 +17,10 @@ function update<Key extends keyof ResultFilters>(key: Key, value: ResultFilters[
 </script>
 
 <template>
-  <div class="border-y border-thread-line py-4" aria-label="Filter current results">
+  <div class="border-y border-thread-line py-4" :aria-label="label">
     <div class="mb-3 flex items-center justify-between gap-4">
       <p class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-thread-muted">
-        <SlidersHorizontal class="h-4 w-4" aria-hidden="true" /> Refine {{ products.length }} preserved {{ products.length === 1 ? 'find' : 'finds' }}
+        <SlidersHorizontal class="h-4 w-4" aria-hidden="true" /> {{ label }} · {{ products.length }} {{ products.length === 1 ? 'item' : 'items' }}
       </p>
       <button v-if="hasFilters" type="button" class="flex min-h-11 cursor-pointer items-center gap-1.5 text-xs text-thread-muted underline-offset-4 hover:text-thread-ink hover:underline" @click="emit('update:modelValue', emptyResultFilters())">
         <RotateCcw class="h-3.5 w-3.5" aria-hidden="true" /> Clear filters

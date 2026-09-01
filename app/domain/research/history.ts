@@ -1,5 +1,6 @@
 import { migrateProductSnapshot } from '~/domain/persistence'
 import { productFreshnessKey } from '~/domain/productIdentity'
+import { getSessionCollectionProducts, getSessionRootPrompt, getSessionRootSearchId } from '~/domain/research/collection'
 import {
   emptyResearchHistory,
   type Product,
@@ -72,23 +73,36 @@ export function archiveReviewedSearch(
   acceptedAt: string,
 ): ResearchHistoryState {
   const liked = new Set(likedProductIds)
+  const collection = getSessionCollectionProducts(session)
+  const rootSearchId = getSessionRootSearchId(session)
   const entry: SavedResearchEntry = {
-    id: `history:${session.id}`,
-    searchId: session.id,
-    prompt: session.mission.rawPrompt,
+    id: `history:${rootSearchId}`,
+    searchId: rootSearchId,
+    prompt: getSessionRootPrompt(session),
     acceptedAt,
     resolution,
-    products: session.products.filter(product => liked.has(product.id)).map(cloneProduct),
+    products: collection.filter(product => liked.has(product.id)).map(cloneProduct),
   }
   const entries = [
     entry,
-    ...history.entries.filter(candidate => candidate.searchId !== session.id).map(cloneEntry),
+    ...history.entries.filter(candidate => candidate.searchId !== rootSearchId).map(cloneEntry),
   ].slice(0, RESEARCH_HISTORY_ENTRY_LIMIT)
   const seenProductKeys = [...new Set([
     ...history.seenProductKeys,
-    ...session.products.map(product => productFreshnessKey(product.url)),
+    ...collection.map(product => productFreshnessKey(product.url)),
   ])].slice(-SEEN_PRODUCT_KEY_LIMIT)
   return { version: 1, entries, seenProductKeys }
+}
+
+export function recordSeenProducts(history: ResearchHistoryState, products: readonly Product[]): ResearchHistoryState {
+  return {
+    version: 1,
+    entries: history.entries.map(cloneEntry),
+    seenProductKeys: [...new Set([
+      ...history.seenProductKeys,
+      ...products.map(product => productFreshnessKey(product.url)),
+    ])].slice(-SEEN_PRODUCT_KEY_LIMIT),
+  }
 }
 
 export function cloneResearchHistory(history: ResearchHistoryState): ResearchHistoryState {

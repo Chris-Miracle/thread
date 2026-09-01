@@ -10,7 +10,7 @@ export function getProductsTool(actions: ThreadActions): WebMCPToolDefinition {
   return {
     name: 'get_products',
     title: 'Get mission products',
-    description: 'Page through the current ranked and diversified product registry. Supports cursor or offset, up to 100 records, plus retailer, category, and sort filters; returned IDs are valid for enrichment and cart actions.',
+    description: 'Page through the full visible mission edit, including products preserved during selective replacement plus fresh candidates. Supports cursor or offset, up to 100 records, plus retailer, category, and sort filters; returned IDs are valid for enrichment and cart actions.',
     inputSchema: {
       type: 'object',
       properties: {

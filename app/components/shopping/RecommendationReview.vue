@@ -29,10 +29,22 @@ const clock = computed(() => {
   const seconds = remainingSeconds.value % 60
   return `${minutes}:${seconds.toString().padStart(2, '0')}`
 })
+const keptCount = computed(() => Math.max(0, products.value.length - selectedIds.value.length))
+
+function toggleSelection(productId: string) {
+  selectedIds.value = selectedIds.value.includes(productId)
+    ? selectedIds.value.filter(id => id !== productId)
+    : [...selectedIds.value, productId]
+}
 
 watch(() => props.session.id, () => {
   selectedIds.value = []
   expiryEmitted.value = false
+})
+
+watch(() => review.value?.productIds.join('|'), () => {
+  const presented = new Set(review.value?.productIds ?? [])
+  selectedIds.value = selectedIds.value.filter(productId => presented.has(productId))
 })
 
 watch(remainingSeconds, (seconds) => {
@@ -58,7 +70,7 @@ onUnmounted(() => {
         <div>
           <p class="text-xs font-medium uppercase tracking-[0.16em] text-thread-accent">Your call</p>
           <h3 id="recommendation-review-title" class="mt-2 font-editorial text-3xl leading-tight sm:text-4xl">Do these recommendations feel right?</h3>
-          <p class="mt-3 max-w-2xl text-sm leading-6 text-thread-muted">Keep the full edit, or mark the pieces you want replaced. Fresh research keeps the original brief and style cues, while excluding every product already shown.</p>
+          <p class="mt-3 max-w-2xl text-sm leading-6 text-thread-muted">Every item is kept by default. Mark only the pieces you want removed from this edit; everything else stays visible while fresh replacements are researched.</p>
         </div>
         <div class="flex min-w-36 items-center gap-2 border border-thread-line bg-thread-canvas px-4 py-3 text-sm tabular-nums" aria-live="polite">
           <TimerReset class="h-4 w-4 text-thread-accent" aria-hidden="true" />
@@ -67,30 +79,48 @@ onUnmounted(() => {
       </div>
 
       <fieldset class="border-t border-thread-line px-5 py-4 lg:px-7">
-        <legend class="px-1 text-xs font-medium uppercase tracking-[0.14em] text-thread-muted">Select anything to replace</legend>
+        <legend class="px-1 text-xs font-medium uppercase tracking-[0.14em] text-thread-muted">Mark only items to replace</legend>
         <div class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          <label v-for="product in products" :key="product.id" class="flex cursor-pointer items-center gap-3 border border-thread-line bg-thread-canvas p-3 transition hover:border-thread-ink">
-            <input v-model="selectedIds" type="checkbox" :value="product.id" class="h-4 w-4 shrink-0 accent-thread-ink" :aria-label="`Replace ${product.name}`">
+          <button
+            v-for="product in products"
+            :key="product.id"
+            type="button"
+            class="flex min-h-20 cursor-pointer items-center gap-3 border p-3 text-left transition"
+            :class="selectedIds.includes(product.id) ? 'border-thread-danger bg-red-50' : 'border-thread-line bg-thread-canvas hover:border-thread-ink'"
+            :aria-pressed="selectedIds.includes(product.id)"
+            :aria-label="`${selectedIds.includes(product.id) ? 'Keep' : 'Replace'} ${product.name}`"
+            @click="toggleSelection(product.id)"
+          >
+            <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border" :class="selectedIds.includes(product.id) ? 'border-thread-danger bg-thread-danger text-white' : 'border-thread-line bg-thread-surface text-green-700'">
+              <RefreshCw v-if="selectedIds.includes(product.id)" class="h-3.5 w-3.5" aria-hidden="true" />
+              <Check v-else class="h-3.5 w-3.5" aria-hidden="true" />
+            </span>
             <ProductImage :src="product.image" alt="" :width="48" :height="56" class="h-14 w-12 shrink-0 bg-thread-soft object-cover" fallback-class="flex h-14 w-12 shrink-0 items-center justify-center bg-thread-soft text-thread-muted" />
             <div class="min-w-0">
               <p class="truncate text-sm font-medium">{{ product.name }}</p>
               <p class="mt-1 text-xs text-thread-muted">{{ product.retailer }}<template v-if="product.priceCad"> · CAD {{ product.priceCad.toFixed(2) }}</template></p>
+              <p class="mt-1 text-[10px] font-medium uppercase tracking-[0.12em]" :class="selectedIds.includes(product.id) ? 'text-thread-danger' : 'text-green-700'">
+                {{ selectedIds.includes(product.id) ? 'Will be replaced' : 'Keeping this item' }}
+              </p>
             </div>
-          </label>
+          </button>
         </div>
       </fieldset>
 
       <div class="flex flex-col gap-2 border-t border-thread-line p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between lg:px-7">
-        <p class="text-xs leading-5 text-thread-muted">No response saves this set as accepted when the timer ends.</p>
+        <div>
+          <p class="text-xs font-medium text-thread-ink">Keeping {{ keptCount }} · Replacing {{ selectedIds.length }}</p>
+          <p class="mt-1 text-xs leading-5 text-thread-muted">No response saves the full set as accepted when the timer ends.</p>
+        </div>
         <div class="flex flex-col gap-2 sm:flex-row">
           <button type="button" class="min-h-11 border border-thread-line px-4 text-xs font-medium transition hover:border-thread-ink" @click="emit('replaceAll')">
-            Research all again
+            Replace the full set
           </button>
-          <button type="button" class="min-h-11 border border-thread-ink px-4 text-xs font-medium transition enabled:hover:bg-thread-soft disabled:cursor-not-allowed disabled:opacity-40" :disabled="!selectedIds.length" @click="emit('replace', selectedIds)">
-            Replace selected<span v-if="selectedIds.length"> ({{ selectedIds.length }})</span>
+          <button type="button" class="min-h-11 border border-thread-ink px-4 text-xs font-medium transition enabled:hover:bg-thread-soft disabled:cursor-not-allowed disabled:opacity-40" :disabled="!selectedIds.length" @click="emit('replace', [...selectedIds])">
+            Find replacements<span v-if="selectedIds.length"> ({{ selectedIds.length }})</span>
           </button>
           <button type="button" class="flex min-h-11 items-center justify-center gap-2 bg-thread-ink px-5 text-xs font-medium text-white transition hover:opacity-90" @click="emit('accept')">
-            <Check class="h-4 w-4" aria-hidden="true" /> I like everything
+            <Check class="h-4 w-4" aria-hidden="true" /> Keep all items
           </button>
         </div>
       </div>

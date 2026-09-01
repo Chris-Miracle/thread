@@ -7,8 +7,9 @@ import {
 } from '~/domain/profile/profile'
 import { applyProductEnrichment, mergeCandidate, normalizeCandidate } from '~/domain/products/productValidation'
 import { rankAndDiversifyProducts } from '~/domain/products/productRanking'
+import { getSessionCollectionProducts, getSessionRootPrompt, getSessionRootSearchId } from '~/domain/research/collection'
 import { evaluateMissionFulfillment } from '~/domain/research/fulfillment'
-import { archiveReviewedSearch, cloneResearchHistory, hydrateResearchHistory } from '~/domain/research/history'
+import { archiveReviewedSearch, cloneResearchHistory, hydrateResearchHistory, recordSeenProducts } from '~/domain/research/history'
 import { claimSearchTargets as claimTargets, createResearchTargets, getSearchCoverage } from '~/domain/research/scheduler'
 import { appendTrace } from '~/domain/research/telemetry'
 import { createSearchMission } from '~/domain/search/mission'
@@ -21,7 +22,7 @@ import { emptySearchState } from '~/types/thread'
 import type {
   ActionSource, AddToCartResult, CartState, CartSummary, GetProductsInput, Product,
   ProductCandidateInput, ProductEnrichmentInput, PublishCandidatesResult, ResearchTarget,
-  RecommendationReview, RecommendationReviewResolution, SearchMissionInput, SearchSession, SearchState, StyleProfile,
+  RecommendationReview, RecommendationReviewResolution, ReplacementContext, SearchMissionInput, SearchSession, SearchState, StyleProfile,
 } from '~/types/thread'
 
 export { validateProfile }
@@ -115,6 +116,13 @@ function cloneSession(session: SearchSession): SearchSession {
           rejectedProductIds: [...session.recommendationReview.rejectedProductIds],
         }
       : undefined,
+    replacementContext: session.replacementContext
+      ? {
+          ...session.replacementContext,
+          preservedProducts: session.replacementContext.preservedProducts.map(cloneProduct),
+          replacedProductIds: [...session.replacementContext.replacedProductIds],
+        }
+      : undefined,
   }
 }
 
@@ -123,9 +131,15 @@ function terminalTarget(target: ResearchTarget): boolean {
 }
 
 function createRecommendationReview(session: SearchSession, now: string): RecommendationReview | undefined {
-  const productIds = session.fulfillment.selectedProductIds.length
+  const researchedProductIds = session.fulfillment.selectedProductIds.length
     ? session.fulfillment.selectedProductIds
     : session.products.map(product => product.id)
+  const productIds = session.replacementContext
+    ? [
+        ...session.replacementContext.preservedProducts.map(product => product.id),
+        ...researchedProductIds,
+      ]
+    : researchedProductIds
   if (!productIds.length) return undefined
   return {
     status: 'pending',
@@ -191,6 +205,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     likedProductIds: string[],
     rejectedProductIds: string[],
     now: string,
+    archive = true,
   ): SearchSession {
     if (session !== deps.search.value.activeSearch) throw new Error('Only the current mission can be reviewed.')
     const review = session.recommendationReview
@@ -210,7 +225,10 @@ export function createThreadActions(deps: ThreadActionDependencies) {
         resolution,
       },
     }, now)
-    persistResearchHistory(archiveReviewedSearch(readResearchHistory(), reviewed, likedProductIds, resolution, now))
+    const history = readResearchHistory()
+    persistResearchHistory(archive
+      ? archiveReviewedSearch(history, reviewed, likedProductIds, resolution, now)
+      : recordSeenProducts(history, getSessionCollectionProducts(reviewed)))
     return reviewed
   }
 
@@ -336,7 +354,10 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     deps.hydrated.value = true
   }
 
-  function startShoppingSearch(input: Parameters<typeof createSearchMission>[0]) {
+  function startShoppingSearch(
+    input: Parameters<typeof createSearchMission>[0],
+    replacementContext?: ReplacementContext,
+  ) {
     const existing = deps.search.value.activeSearch
     if (existing?.recommendationReview?.status === 'pending') expireRecommendationReview(existing.id)
     const previous = deps.search.value.activeSearch
@@ -368,6 +389,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       completedAt: null,
       cancellationReason: null,
       revision: 0,
+      replacementContext,
     }
     session = appendTrace(session, { type: 'search_started', message: `Started “${mission.rawPrompt}”.`, at: now })
     session = appendTrace(session, { type: 'mission_created', message: `Created ${mission.needs.length} mission needs and ${mission.derivedQueries.length} concrete queries.`, at: now })
@@ -448,7 +470,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     let newProductCount = 0
     const previouslySeen = new Set([
       ...readResearchHistory().seenProductKeys,
-      ...deps.search.value.recentSearches.flatMap(previous => previous.products.map(product => productFreshnessKey(product.url))),
+      ...deps.search.value.recentSearches.flatMap(previous => getSessionCollectionProducts(previous).map(product => productFreshnessKey(product.url))),
     ])
     input.candidates.forEach((candidate, index) => {
       session = appendTrace(session, { type: 'candidate_received', targetId: target.id, message: `Candidate ${index + 1} received from ${target.name}.`, at: now })
@@ -616,18 +638,21 @@ export function createThreadActions(deps: ThreadActionDependencies) {
 
   function replacementMissionInput(session: SearchSession, productIds: readonly string[]): SearchMissionInput {
     const requested = new Set(productIds)
-    const rejectedProducts = session.products.filter(product => requested.has(product.id))
+    const collection = getSessionCollectionProducts(session)
+    const rejectedProducts = collection.filter(product => requested.has(product.id))
     if (!rejectedProducts.length) throw new Error('Choose at least one presented product to replace.')
+    const coveredProductIds = new Set<string>()
     const replacementNeeds = session.mission.needs.flatMap((need) => {
       const selectedForNeed = session.fulfillment.needs.find(item => item.needId === need.id)?.selectedProductIds ?? []
-      const quantity = selectedForNeed.filter(productId => requested.has(productId)).length
-        || rejectedProducts.filter(product => product.needIds.includes(need.id)).length
+      const matchingProducts = rejectedProducts.filter(product => product.needIds.includes(need.id))
+      const quantity = selectedForNeed.filter(productId => requested.has(productId)).length || matchingProducts.length
       if (!quantity) return []
-      const productNames = rejectedProducts.filter(product => product.needIds.includes(need.id)).map(product => product.name)
+      matchingProducts.forEach(product => coveredProductIds.add(product.id))
+      const productNames = matchingProducts.map(product => product.name)
       return [{
-        intent: `fresh alternatives for ${need.intent}`,
+        intent: `replacement for ${need.intent.replace(/^fresh alternatives? for /i, '')}`,
         queries: [...new Set([
-          ...need.queries.map(query => `${query} alternative`),
+          ...need.queries.map(query => /alternative/i.test(query) ? query : `${query} alternative`),
           ...productNames.map(name => `alternative to ${name}`),
         ])].slice(0, 10),
         categories: [...need.categories],
@@ -636,8 +661,9 @@ export function createThreadActions(deps: ThreadActionDependencies) {
         budgetCad: need.budgetCad,
       }]
     })
-    if (!replacementNeeds.length) {
-      replacementNeeds.push(...rejectedProducts.map(product => ({
+    replacementNeeds.push(...rejectedProducts
+      .filter(product => !coveredProductIds.has(product.id))
+      .map(product => ({
         intent: `fresh alternative for ${product.name}`,
         queries: [`alternative to ${product.name}`],
         categories: product.category ? [product.category] : [],
@@ -645,13 +671,12 @@ export function createThreadActions(deps: ThreadActionDependencies) {
         quantity: 1,
         budgetCad: product.priceCad,
       })))
-    }
     const likedNames = session.recommendationReview?.likedProductIds
-      .map(productId => session.products.find(product => product.id === productId)?.name)
+      .map(productId => collection.find(product => product.id === productId)?.name)
       .filter((name): name is string => Boolean(name)) ?? []
     const cue = likedNames.length ? ` Use the accepted pieces as style cues: ${likedNames.join(', ')}.` : ''
     return {
-      rawPrompt: `Fresh alternatives for ${rejectedProducts.map(product => product.name).join(', ')}. Original request: ${session.mission.rawPrompt}`,
+      rawPrompt: `Replace ${rejectedProducts.map(product => product.name).join(', ')}. Keep every other accepted item. Original brief: ${getSessionRootPrompt(session)}`,
       shoppingDepartment: session.mission.shoppingDepartment,
       stylePreferences: [...session.mission.stylePreferences],
       context: {
@@ -667,6 +692,18 @@ export function createThreadActions(deps: ThreadActionDependencies) {
         retailerIds: [...session.mission.constraints.retailerIds],
         excludedRetailerIds: [...session.mission.constraints.excludedRetailerIds],
       },
+    }
+  }
+
+  function createReplacementContext(session: SearchSession, productIds: readonly string[]): ReplacementContext {
+    const requested = new Set(productIds)
+    const collection = getSessionCollectionProducts(session)
+    return {
+      rootSearchId: getSessionRootSearchId(session),
+      rootPrompt: getSessionRootPrompt(session),
+      sourceSearchId: session.id,
+      preservedProducts: collection.filter(product => !requested.has(product.id)).map(cloneProduct),
+      replacedProductIds: [...requested],
     }
   }
 
@@ -696,8 +733,11 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     const rejected = new Set(rejectedProductIds)
     const likedProductIds = review.productIds.filter(productId => !rejected.has(productId))
     const resolution = input.decision === 'replace-all' ? 'replace-all' : 'replace-selected'
-    const reviewed = finalizeRecommendationReview(session, resolution, likedProductIds, rejectedProductIds, new Date().toISOString())
-    const replacement = startShoppingSearch(replacementMissionInput(reviewed, rejectedProductIds))
+    const reviewed = finalizeRecommendationReview(session, resolution, likedProductIds, rejectedProductIds, new Date().toISOString(), false)
+    const replacement = startShoppingSearch(
+      replacementMissionInput(reviewed, rejectedProductIds),
+      createReplacementContext(reviewed, rejectedProductIds),
+    )
     const archivedSource = deps.search.value.recentSearches.find(candidate => candidate.id === reviewed.id)
     if (archivedSource?.recommendationReview) {
       deps.search.value = {
@@ -724,7 +764,10 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     const productIds = input.productIds?.length
       ? [...new Set(input.productIds)]
       : session.recommendationReview?.productIds ?? session.fulfillment.selectedProductIds
-    const replacement = startShoppingSearch(replacementMissionInput(session, productIds))
+    const replacement = startShoppingSearch(
+      replacementMissionInput(session, productIds),
+      createReplacementContext(session, productIds),
+    )
     return { sourceSearchId: session.id, replacement, nextAction: 'claim_search_targets' as const }
   }
 
@@ -762,6 +805,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
   function getSearchStatus(searchId?: string) {
     expireRecommendationReview(searchId)
     const session = currentSession(searchId)
+    const collectionProducts = getSessionCollectionProducts(session)
     return {
       searchId: session.id,
       status: session.status,
@@ -774,6 +818,13 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       completedAt: session.completedAt,
       cancellationReason: session.cancellationReason,
       recommendationReview: cloneSession(session).recommendationReview ?? null,
+      collection: {
+        rootSearchId: getSessionRootSearchId(session),
+        rootPrompt: getSessionRootPrompt(session),
+        productIds: collectionProducts.map(product => product.id),
+        preservedProductIds: session.replacementContext?.preservedProducts.map(product => product.id) ?? [],
+        replacingProductIds: session.replacementContext?.replacedProductIds ?? [],
+      },
       nextAction: session.status !== 'active'
         ? reviewNextAction(session)
         : session.targets.some(target => target.status === 'queued')
@@ -789,7 +840,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     const cursorOffset = input.cursor?.match(/^offset:(\d+)$/)?.[1]
     const offset = cursorOffset ? Number(cursorOffset) : input.offset ?? 0
     if (!Number.isInteger(offset) || offset < 0) throw new Error('offset must be a non-negative integer.')
-    let products = session.products
+    let products = getSessionCollectionProducts(session)
       .filter(product => !input.retailerId || product.retailerId === input.retailerId)
       .filter(product => !input.category || product.category === input.category)
     if (input.sort === 'price-asc') products = products.toSorted((left, right) => (left.priceCad ?? Number.POSITIVE_INFINITY) - (right.priceCad ?? Number.POSITIVE_INFINITY))
@@ -808,11 +859,18 @@ export function createThreadActions(deps: ThreadActionDependencies) {
   }
 
   function getProductById(productId: string): Product | undefined {
-    const sessionProduct = deps.search.value.activeSearch?.products.find(product => product.id === productId)
-      ?? deps.search.value.recentSearches.flatMap(session => session.products).find(product => product.id === productId)
+    const sessionProduct = deps.search.value.activeSearch
+      ? getSessionCollectionProducts(deps.search.value.activeSearch).find(product => product.id === productId)
+      : undefined
+    const recentProduct = deps.search.value.recentSearches
+      .flatMap(getSessionCollectionProducts)
+      .find(product => product.id === productId)
+    const savedProduct = readResearchHistory().entries
+      .flatMap(entry => entry.products)
+      .find(product => product.id === productId)
     const fixture = deps.fixtures?.find(product => product.id === productId)
     const cartProduct = deps.cart.value.items.find(item => item.productId === productId)?.product
-    const product = sessionProduct ?? fixture ?? cartProduct
+    const product = sessionProduct ?? recentProduct ?? savedProduct ?? fixture ?? cartProduct
     return product ? cloneProduct(product) : undefined
   }
 

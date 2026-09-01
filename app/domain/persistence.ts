@@ -4,7 +4,7 @@ import { evaluateMissionFulfillment } from '~/domain/research/fulfillment'
 import {
   OCCASIONS, PRODUCT_AVAILABILITY, PRODUCT_CATEGORIES, RECOMMENDATION_REVIEW_STATUSES, RESEARCH_TARGET_STATUSES, SEARCH_STATUSES,
   SHOPPING_DEPARTMENTS, STYLE_OPTIONS, emptySearchState,
-  type CartState, type Product, type ProductAvailability, type ProductCategory, type RecommendationReview, type ResearchTarget,
+  type CartState, type Product, type ProductAvailability, type ProductCategory, type RecommendationReview, type ReplacementContext, type ResearchTarget,
   type SearchMission, type SearchSession, type SearchState, type ShoppingDepartment, type StyleId,
 } from '~/types/thread'
 
@@ -193,6 +193,23 @@ function hydrateRecommendationReview(value: unknown, products: readonly Product[
   }
 }
 
+function hydrateReplacementContext(value: unknown): ReplacementContext | undefined {
+  const item = record(value)
+  if (!item || typeof item.rootSearchId !== 'string' || typeof item.rootPrompt !== 'string' || typeof item.sourceSearchId !== 'string') {
+    return undefined
+  }
+  const preservedProducts = Array.isArray(item.preservedProducts)
+    ? item.preservedProducts.map(migrateProductSnapshot).filter((product): product is Product => Boolean(product))
+    : []
+  return {
+    rootSearchId: item.rootSearchId,
+    rootPrompt: item.rootPrompt,
+    sourceSearchId: item.sourceSearchId,
+    preservedProducts,
+    replacedProductIds: stringArray(item.replacedProductIds),
+  }
+}
+
 function hydrateSearchSession(value: unknown): SearchSession | null {
   const item = record(value)
   if (!item || item.version !== 1 || typeof item.id !== 'string' || typeof item.status !== 'string' || !searchStatuses.has(item.status)) {
@@ -210,6 +227,8 @@ function hydrateSearchSession(value: unknown): SearchSession | null {
   })
   const products = item.products.map(migrateProductSnapshot)
     .filter((product): product is Product => Boolean(product) && product?.searchId === item.id)
+  const replacementContext = hydrateReplacementContext(item.replacementContext)
+  const reviewProducts = [...(replacementContext?.preservedProducts ?? []), ...products]
   const session: SearchSession = {
     version: 1,
     id: item.id,
@@ -227,7 +246,8 @@ function hydrateSearchSession(value: unknown): SearchSession | null {
     completedAt: typeof item.completedAt === 'string' ? item.completedAt : null,
     cancellationReason: typeof item.cancellationReason === 'string' ? item.cancellationReason : null,
     revision: typeof item.revision === 'number' ? item.revision : 0,
-    recommendationReview: hydrateRecommendationReview(item.recommendationReview, products),
+    recommendationReview: hydrateRecommendationReview(item.recommendationReview, reviewProducts),
+    replacementContext,
   }
   return session
 }
