@@ -255,13 +255,22 @@ describe('variant-stable cross-store cart', () => {
       name: 'Leather card holder',
       colors: ['Black', 'Brown'],
     }
-    const harness = makeActions({ fixtures: [fixedAccessory, colourAccessory] })
+    const fixedVariantAccessory = {
+      ...fixedAccessory,
+      id: 'product:accessory:fixed-variant',
+      name: 'Single-variant card holder',
+      colors: ['Black'],
+      sizes: ['ONE SIZE'],
+    }
+    const harness = makeActions({ fixtures: [fixedAccessory, colourAccessory, fixedVariantAccessory] })
 
     expect(harness.actions.addToCart(fixedAccessory.id, { size: 'XL', color: 'Green' }).item)
       .toMatchObject({ size: undefined, color: undefined })
     expect(() => harness.actions.addToCart(colourAccessory.id)).toThrow('Select a colour')
     expect(() => harness.actions.addToCart(colourAccessory.id, { color: 'Green' })).toThrow('not an available colour')
     expect(harness.actions.addToCart(colourAccessory.id, { color: 'Black' }).item.color).toBe('Black')
+    expect(harness.actions.addToCart(fixedVariantAccessory.id, { size: 'XL', color: 'Green' }).item)
+      .toMatchObject({ size: 'ONE SIZE', color: 'Black' })
   })
 })
 

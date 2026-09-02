@@ -18,11 +18,13 @@ export function getProductVariantPolicy(product: Product): ProductVariantPolicy 
   return {
     colorOptions,
     sizeOptions,
-    requiresColor: colorOptions.length > 0,
-    requiresSize: sizeOptions.length > 0,
+    requiresColor: colorOptions.length > 1,
+    requiresSize: sizeOptions.length > 1,
     guidance: product.category === 'fragrance'
       ? 'Bottle volume is already defined by this listing. No apparel size or colour selection is needed.'
-      : 'This item is sold as listed. No size or colour selection is needed.',
+      : colorOptions.length === 1 || sizeOptions.length === 1
+        ? 'The listing has one fixed variant, so Rove will use it automatically.'
+        : 'This item is sold as listed. No size or colour selection is needed.',
   }
 }
 
@@ -31,8 +33,12 @@ export function resolveCartVariant(
   options: { size?: string; color?: string } = {},
 ): { size?: string; color?: string } {
   const policy = getProductVariantPolicy(product)
-  const size = policy.requiresSize ? options.size?.trim() || undefined : undefined
-  const color = policy.requiresColor ? options.color?.trim() || undefined : undefined
+  const size = policy.sizeOptions.length === 1
+    ? policy.sizeOptions[0]
+    : policy.requiresSize ? options.size?.trim() || undefined : undefined
+  const color = policy.colorOptions.length === 1
+    ? policy.colorOptions[0]
+    : policy.requiresColor ? options.color?.trim() || undefined : undefined
 
   if (policy.requiresSize && !size) throw new Error(`Select a size for ${product.name}.`)
   if (policy.requiresColor && !color) throw new Error(`Select a colour for ${product.name}.`)
