@@ -1,7 +1,7 @@
 import { THREAD_TOOL_NAMES, registerThreadTools, unregisterThreadTools } from '~/webmcp/registerThreadTools'
 
 export default defineNuxtPlugin({
-  name: 'thread-webmcp',
+  name: 'rove-webmcp',
   dependsOn: ['thread-state'],
   async setup() {
     const { status } = useWebMCPStatus()
@@ -14,7 +14,7 @@ export default defineNuxtPlugin({
     } catch (error) {
       const message = error instanceof Error ? error.message : 'WebMCP tool registration failed.'
       status.value = { supported: true, registered: false, toolNames: [], error: message }
-      console.warn('[THREAD] WebMCP registration failed:', error)
+      console.warn('[ROVE] WebMCP registration failed:', error)
     }
 
     if (import.meta.hot) import.meta.hot.dispose(unregisterThreadTools)

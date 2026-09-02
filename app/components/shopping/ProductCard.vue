@@ -14,7 +14,7 @@ const observedLabel = computed(() => new Date(props.product.observedAt).toLocale
 </script>
 
 <template>
-  <article class="group mb-3 inline-block w-full min-w-0 break-inside-avoid overflow-hidden border border-thread-line bg-thread-surface align-top sm:mb-4">
+  <article class="rove-glass-card group mb-3 inline-block w-full min-w-0 break-inside-avoid overflow-hidden rounded-[1.4rem] border align-top sm:mb-4">
     <div class="relative overflow-hidden bg-thread-soft">
       <button type="button" class="block w-full cursor-pointer" :aria-label="`Inspect ${product.name}`" @click="emit('select')">
         <ProductImage
@@ -29,7 +29,7 @@ const observedLabel = computed(() => new Date(props.product.observedAt).toLocale
       </button>
       <button
         type="button"
-        class="absolute bottom-2.5 right-2.5 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-thread-surface text-thread-ink shadow-soft transition hover:bg-thread-ink hover:text-white"
+        class="rove-glass absolute bottom-2.5 right-2.5 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border text-thread-ink transition hover:bg-thread-ink hover:text-white"
         :aria-label="product.stage === 'enriched' ? `Add or select variants for ${product.name}` : `Inspect ${product.name} before adding`"
         @click="emit('add')"
       >

@@ -2,6 +2,7 @@
 import { LoaderCircle, Sparkles } from 'lucide-vue-next'
 import { filterProducts } from '~/domain/productFilters'
 import type { ProfileInput } from '~/domain/profile/profile'
+import { getProductVariantPolicy } from '~/domain/products/productVariants'
 import { getSessionCollectionProducts, getSessionRootPrompt } from '~/domain/research/collection'
 import { emptyResultFilters, type Product } from '~/types/thread'
 
@@ -41,7 +42,8 @@ function saveProfile(input: ProfileInput) {
 
 function quickAdd(product: Product) {
   actionError.value = ''
-  if (product.stage !== 'enriched' || product.sizes.length || product.colors.length) {
+  const variantPolicy = getProductVariantPolicy(product)
+  if (product.stage !== 'enriched' || variantPolicy.requiresSize || variantPolicy.requiresColor) {
     selectedProduct.value = product
     return
   }
@@ -67,7 +69,7 @@ function stopResearch() {
   if (!session.value || session.value.status !== 'active') return
   actionError.value = ''
   try {
-    actions.cancelSearch(session.value.id, 'Stopped from the THREAD workspace.')
+    actions.cancelSearch(session.value.id, 'Stopped from the Rove workspace.')
   } catch (error) {
     actionError.value = error instanceof Error ? error.message : 'Could not stop this search.'
   }
@@ -129,16 +131,16 @@ function resetWorkspace() {
 </script>
 
 <template>
-  <div class="min-h-dvh bg-thread-canvas text-thread-ink">
+  <div class="min-h-dvh bg-transparent text-thread-ink">
     <ThreadOnboarding v-if="!profile" @save="saveProfile" />
     <template v-else>
       <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:bg-thread-ink focus:px-4 focus:py-3 focus:text-white">Skip to shopping</a>
       <ThreadHeader :profile="profile" :cart-count="cartSummary.itemCount" @open-cart="cartOpen = true" @edit-profile="profileOpen = true" @reset="resetOpen = true" />
       <main id="main-content" class="mx-auto max-w-[1920px] px-4 pb-20 pt-10 sm:px-7 sm:pt-14 lg:px-10 lg:pt-16 2xl:px-12">
         <section class="max-w-5xl">
-          <p class="text-xs font-medium uppercase tracking-[0.18em] text-thread-accent">Shared fashion research workspace</p>
+          <p class="text-xs font-medium uppercase tracking-[0.18em] text-thread-accent">Your personal style workspace</p>
           <h1 class="mt-4 max-w-4xl font-editorial text-5xl leading-[0.94] tracking-[-0.025em] sm:text-7xl lg:text-[88px]">What are we dressing for, <span class="italic">{{ profile.name }}</span>?</h1>
-          <p class="mt-7 max-w-2xl text-base leading-7 text-thread-muted sm:text-lg">Tell your browser agent what you are dressing for. It researches the open web while verified candidates arrive in this shared workspace.</p>
+          <p class="mt-7 max-w-2xl text-base leading-7 text-thread-muted sm:text-lg">Bring a trip, an event, or a wardrobe gap. Rove shapes it into a considered edit you can refine, save, and shop across real retailers.</p>
         </section>
 
         <p v-if="actionError" role="alert" class="mt-6 border-l-2 border-thread-danger pl-3 text-sm text-thread-danger">{{ actionError }}</p>
@@ -157,7 +159,7 @@ function resetWorkspace() {
               <h2 id="results-heading" class="mt-1 max-w-6xl font-editorial text-4xl leading-tight sm:text-5xl">
                 {{ hasCurrentMission ? `“${currentPrompt}”` : 'Ready when you are.' }}
               </h2>
-              <p v-if="hasCurrentMission && replacementCount" class="mt-3 max-w-3xl text-sm leading-6 text-thread-muted">THREAD is keeping {{ session?.replacementContext?.preservedProducts.length ?? 0 }} accepted pieces visible and researching only the {{ replacementCount }} marked for replacement.</p>
+              <p v-if="hasCurrentMission && replacementCount" class="mt-3 max-w-3xl text-sm leading-6 text-thread-muted">Rove is keeping {{ session?.replacementContext?.preservedProducts.length ?? 0 }} accepted pieces visible and researching only the {{ replacementCount }} marked for replacement.</p>
             </div>
             <p v-if="hasCurrentMission" class="shrink-0 text-xs tabular-nums text-thread-muted">
               <strong class="font-medium text-thread-ink">{{ products.length }} ranked</strong>
@@ -168,7 +170,7 @@ function resetWorkspace() {
           <EmptyState
             v-if="!hasCurrentMission"
             :title="savedEntries.length ? 'Your last mission is saved below.' : 'Nothing is being researched right now.'"
-            :description="savedEntries.length ? 'Saved products and retailer links remain filterable in your mission library. Give the browser agent a new brief whenever you want a separate current mission.' : 'Start a shopping mission with your browser agent. THREAD will coordinate retailer research and preserve grounded candidates here.'"
+            :description="savedEntries.length ? 'Saved products and retailer links remain filterable in your mission library. Start a new brief whenever you want a separate current edit.' : 'Start a shopping mission and Rove will coordinate retailer research while preserving every grounded candidate here.'"
           />
           <template v-else-if="session">
             <ResearchProgress :session="session" @stop="stopResearch" />
@@ -196,7 +198,7 @@ function resetWorkspace() {
 
       <footer class="border-t border-thread-line px-4 py-7 sm:px-7 lg:px-10 2xl:px-12">
         <div class="mx-auto flex max-w-[1824px] flex-col gap-3 text-xs text-thread-muted sm:flex-row sm:items-center sm:justify-between">
-          <p>THREAD / Real retailer links. Prices and stock are observations, not guarantees.</p>
+          <p>ROVE / Considered edits, real retailer links. Prices and stock are observations, not guarantees.</p>
           <WebMCPStatus :supported="webmcpStatus.supported" :registered="webmcpStatus.registered" />
         </div>
       </footer>

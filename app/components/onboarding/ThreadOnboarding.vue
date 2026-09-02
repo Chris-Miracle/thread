@@ -68,27 +68,27 @@ function submit() {
 </script>
 
 <template>
-  <section class="relative flex min-h-dvh items-center bg-thread-canvas px-5 py-12 sm:px-8" :aria-label="editing ? 'Edit style profile' : 'Create your Thread profile'">
+  <section class="relative flex min-h-dvh items-center bg-transparent px-5 py-12 sm:px-8" :aria-label="editing ? 'Edit style profile' : 'Create your Rove profile'">
     <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-thread-line" />
     <button
       v-if="editing"
       type="button"
-      class="absolute right-5 top-5 flex h-11 w-11 cursor-pointer items-center justify-center border border-thread-line bg-thread-surface transition hover:border-thread-ink sm:right-8 sm:top-8"
+      class="rove-glass absolute right-5 top-5 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border transition hover:border-thread-ink sm:right-8 sm:top-8"
       aria-label="Close profile settings"
       @click="emit('cancel')"
     >
       <X class="h-5 w-5" aria-hidden="true" />
     </button>
 
-    <div class="mx-auto w-full max-w-3xl">
-      <p class="mb-14 text-sm font-semibold tracking-[0.28em]">THREAD</p>
+    <div class="rove-glass-strong mx-auto w-full max-w-3xl rounded-[2rem] border p-6 sm:p-10 lg:p-12">
+      <RoveLogo class="mb-12" />
       <div class="mb-10 max-w-2xl">
-        <p class="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-thread-accent">{{ editing ? 'Your profile' : 'Welcome to Thread' }}</p>
+        <p class="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-thread-accent">{{ editing ? 'Your profile' : 'Welcome to Rove' }}</p>
         <h1 class="font-editorial text-5xl leading-[0.95] tracking-[-0.025em] text-thread-ink sm:text-7xl">
           {{ editing ? 'Refine your point of view.' : 'Your wardrobe for the web.' }}
         </h1>
         <p class="mt-5 max-w-lg text-base leading-7 text-thread-muted">
-          {{ editing ? 'Update what Thread uses to shape your recommendations.' : 'Tell Thread a little about your style.' }}
+          {{ editing ? 'Update what Rove uses to shape your recommendations.' : 'Give Rove a starting point for your personal style.' }}
         </p>
       </div>
 
@@ -102,7 +102,7 @@ function submit() {
             type="text"
             autocomplete="given-name"
             maxlength="40"
-            class="h-14 w-full border border-thread-line bg-thread-surface px-4 text-base text-thread-ink placeholder:text-thread-muted/65 transition hover:border-thread-accent focus:border-thread-ink focus:outline-none"
+            class="h-14 w-full rounded-xl border border-thread-line bg-white/70 px-4 text-base text-thread-ink placeholder:text-thread-muted/65 transition hover:border-thread-accent focus:border-thread-ink focus:outline-none"
             placeholder="First name"
             :aria-invalid="Boolean(error && !name.trim())"
           >
@@ -110,13 +110,13 @@ function submit() {
 
         <fieldset>
           <legend class="mb-3 text-sm font-medium text-thread-ink">Who are you shopping for?</legend>
-          <p class="mb-4 text-xs leading-5 text-thread-muted">This helps Thread choose the right departments. You can still search every store.</p>
+          <p class="mb-4 text-xs leading-5 text-thread-muted">This helps Rove choose the right departments. You can still search every store.</p>
           <div class="grid gap-3 sm:grid-cols-3">
             <button
               v-for="option in SHOPPING_DEPARTMENTS"
               :key="option.id"
               type="button"
-              class="min-h-[76px] cursor-pointer border px-4 py-3 text-left transition"
+              class="min-h-[76px] cursor-pointer rounded-2xl border px-4 py-3 text-left transition"
               :class="shoppingDepartment === option.id ? 'border-thread-ink bg-thread-ink text-white' : 'border-thread-line bg-thread-surface hover:border-thread-ink'"
               :aria-pressed="shoppingDepartment === option.id"
               @click="shoppingDepartment = option.id"
@@ -129,34 +129,34 @@ function submit() {
 
         <StyleSelector v-model="styles" />
 
-        <details class="border border-thread-line bg-thread-surface">
+        <details class="overflow-hidden rounded-2xl border border-thread-line bg-white/55">
           <summary class="cursor-pointer px-4 py-4 text-sm font-medium text-thread-ink">Fit and identity details <span class="ml-2 text-xs font-normal text-thread-muted">Optional</span></summary>
           <div class="grid gap-5 border-t border-thread-line p-4 sm:grid-cols-2">
             <div>
               <label for="thread-gender-identity" class="mb-2 block text-xs font-medium text-thread-ink">Gender identity</label>
-              <input id="thread-gender-identity" v-model="genderIdentity" type="text" autocomplete="sex" maxlength="80" class="h-12 w-full border border-thread-line bg-thread-canvas px-3 text-sm focus:border-thread-ink focus:outline-none" placeholder="e.g. man">
+              <input id="thread-gender-identity" v-model="genderIdentity" type="text" autocomplete="sex" maxlength="80" class="h-12 w-full rounded-xl border border-thread-line bg-white/65 px-3 text-sm focus:border-thread-ink focus:outline-none" placeholder="e.g. man">
             </div>
             <div>
               <label for="thread-racial-identity" class="mb-2 block text-xs font-medium text-thread-ink">Racial or cultural identity</label>
-              <input id="thread-racial-identity" v-model="racialIdentity" type="text" maxlength="80" class="h-12 w-full border border-thread-line bg-thread-canvas px-3 text-sm focus:border-thread-ink focus:outline-none" placeholder="Optional, self-described">
+              <input id="thread-racial-identity" v-model="racialIdentity" type="text" maxlength="80" class="h-12 w-full rounded-xl border border-thread-line bg-white/65 px-3 text-sm focus:border-thread-ink focus:outline-none" placeholder="Optional, self-described">
             </div>
             <div>
               <label for="thread-height" class="mb-2 block text-xs font-medium text-thread-ink">Height (cm)</label>
-              <input id="thread-height" v-model="heightCm" type="number" inputmode="decimal" min="80" max="250" step="0.01" class="h-12 w-full border border-thread-line bg-thread-canvas px-3 text-sm tabular-nums focus:border-thread-ink focus:outline-none" placeholder="180">
+              <input id="thread-height" v-model="heightCm" type="number" inputmode="decimal" min="80" max="250" step="0.01" class="h-12 w-full rounded-xl border border-thread-line bg-white/65 px-3 text-sm tabular-nums focus:border-thread-ink focus:outline-none" placeholder="180">
             </div>
             <div>
               <label for="thread-weight" class="mb-2 block text-xs font-medium text-thread-ink">Weight (kg)</label>
-              <input id="thread-weight" v-model="weightKg" type="number" inputmode="decimal" min="20" max="400" step="0.1" class="h-12 w-full border border-thread-line bg-thread-canvas px-3 text-sm tabular-nums focus:border-thread-ink focus:outline-none" placeholder="81">
+              <input id="thread-weight" v-model="weightKg" type="number" inputmode="decimal" min="20" max="400" step="0.1" class="h-12 w-full rounded-xl border border-thread-line bg-white/65 px-3 text-sm tabular-nums focus:border-thread-ink focus:outline-none" placeholder="81">
             </div>
             <div>
               <label for="thread-top-size" class="mb-2 block text-xs font-medium text-thread-ink">Usual top size</label>
-              <input id="thread-top-size" v-model="topSize" type="text" maxlength="20" class="h-12 w-full border border-thread-line bg-thread-canvas px-3 text-sm uppercase focus:border-thread-ink focus:outline-none" placeholder="L">
+              <input id="thread-top-size" v-model="topSize" type="text" maxlength="20" class="h-12 w-full rounded-xl border border-thread-line bg-white/65 px-3 text-sm uppercase focus:border-thread-ink focus:outline-none" placeholder="L">
             </div>
             <div>
               <label for="thread-bottom-size" class="mb-2 block text-xs font-medium text-thread-ink">Usual bottom size</label>
-              <input id="thread-bottom-size" v-model="bottomSize" type="text" maxlength="20" class="h-12 w-full border border-thread-line bg-thread-canvas px-3 text-sm uppercase focus:border-thread-ink focus:outline-none" placeholder="XL">
+              <input id="thread-bottom-size" v-model="bottomSize" type="text" maxlength="20" class="h-12 w-full rounded-xl border border-thread-line bg-white/65 px-3 text-sm uppercase focus:border-thread-ink focus:outline-none" placeholder="XL">
             </div>
-            <p class="sm:col-span-2 text-xs leading-5 text-thread-muted">These details stay in this browser. THREAD preserves self-described identity but does not infer skin tone from racial identity.</p>
+            <p class="sm:col-span-2 text-xs leading-5 text-thread-muted">These details stay in this browser. Rove preserves self-described identity but does not infer skin tone from racial identity.</p>
           </div>
         </details>
 
@@ -164,8 +164,8 @@ function submit() {
 
         <div class="flex flex-col gap-3 border-t border-thread-line pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p class="max-w-sm text-xs leading-5 text-thread-muted">Saved only in this browser. Change it anytime from your profile.</p>
-          <button type="submit" class="flex min-h-12 cursor-pointer items-center justify-center gap-3 bg-thread-ink px-6 text-sm font-medium text-white transition hover:bg-thread-accent sm:min-w-44">
-            {{ editing ? 'Save profile' : 'Enter Thread' }}
+          <button type="submit" class="flex min-h-12 cursor-pointer items-center justify-center gap-3 rounded-full bg-thread-ink px-6 text-sm font-medium text-white shadow-soft transition hover:bg-thread-accent sm:min-w-44">
+            {{ editing ? 'Save profile' : 'Enter Rove' }}
             <ArrowRight class="h-4 w-4" :stroke-width="1.8" aria-hidden="true" />
           </button>
         </div>

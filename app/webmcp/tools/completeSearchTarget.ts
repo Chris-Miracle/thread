@@ -8,7 +8,7 @@ export function completeSearchTargetTool(actions: ThreadActions): WebMCPToolDefi
   return {
     name: 'complete_search_target',
     title: 'Resolve a research target',
-    description: 'Resolve one claimed retailer as complete, no-results, or failed. Complete requires an accepted product; no-results and failed require a reason. When the mission ends with products, THREAD starts a timed recommendation review before saving the result.',
+    description: 'Resolve one claimed retailer as complete, no-results, or failed. Complete requires an accepted product; no-results and failed require a reason. When the mission ends with products, Rove starts a timed recommendation review before saving the result.',
     inputSchema: {
       type: 'object',
       properties: {

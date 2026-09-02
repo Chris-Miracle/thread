@@ -65,7 +65,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section v-if="review" class="mb-7 border border-thread-ink bg-thread-surface" aria-labelledby="recommendation-review-title">
+  <section v-if="review" class="rove-glass-strong mb-7 overflow-hidden rounded-[2rem] border border-thread-ink/25" aria-labelledby="recommendation-review-title">
     <template v-if="review.status === 'pending'">
       <div class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:p-7">
         <div>
@@ -73,7 +73,7 @@ onUnmounted(() => {
           <h3 id="recommendation-review-title" class="mt-2 font-editorial text-3xl leading-tight sm:text-4xl">Do these recommendations feel right?</h3>
           <p class="mt-3 max-w-2xl text-sm leading-6 text-thread-muted">Every item is kept by default. Mark only the pieces you want removed from this edit; everything else stays visible while fresh replacements are researched.</p>
         </div>
-        <div class="flex min-w-36 items-center gap-2 border border-thread-line bg-thread-canvas px-4 py-3 text-sm tabular-nums" aria-live="polite">
+        <div class="rove-glass flex min-w-36 items-center gap-2 rounded-full px-4 py-3 text-sm tabular-nums" aria-live="polite">
           <TimerReset class="h-4 w-4 text-thread-accent" aria-hidden="true" />
           <span><strong class="font-medium">{{ clock }}</strong> to confirm</span>
         </div>
@@ -86,8 +86,8 @@ onUnmounted(() => {
             v-for="product in products"
             :key="product.id"
             type="button"
-            class="flex min-h-20 cursor-pointer items-center gap-3 border p-3 text-left transition"
-            :class="selectedIds.includes(product.id) ? 'border-thread-danger bg-red-50' : 'border-thread-line bg-thread-canvas hover:border-thread-ink'"
+            class="flex min-h-20 cursor-pointer items-center gap-3 rounded-2xl border p-3 text-left transition"
+            :class="selectedIds.includes(product.id) ? 'border-thread-danger bg-red-50/75' : 'border-thread-line bg-white/50 hover:border-thread-ink'"
             :aria-pressed="selectedIds.includes(product.id)"
             :aria-label="`${selectedIds.includes(product.id) ? 'Keep' : 'Replace'} ${product.name}`"
             @click="toggleSelection(product.id)"
@@ -114,13 +114,13 @@ onUnmounted(() => {
           <p class="mt-1 text-xs leading-5 text-thread-muted">No response saves the full set as accepted when the timer ends.</p>
         </div>
         <div class="flex flex-col gap-2 sm:flex-row">
-          <button type="button" class="min-h-11 border border-thread-line px-4 text-xs font-medium transition hover:border-thread-ink" @click="emit('replaceAll')">
+          <button type="button" class="min-h-11 rounded-full border border-thread-line px-4 text-xs font-medium transition hover:border-thread-ink" @click="emit('replaceAll')">
             Replace the full set
           </button>
-          <button type="button" class="min-h-11 border border-thread-ink px-4 text-xs font-medium transition enabled:hover:bg-thread-soft disabled:cursor-not-allowed disabled:opacity-40" :disabled="!selectedIds.length" @click="emit('replace', [...selectedIds])">
+          <button type="button" class="min-h-11 rounded-full border border-thread-ink px-4 text-xs font-medium transition enabled:hover:bg-thread-soft disabled:cursor-not-allowed disabled:opacity-40" :disabled="!selectedIds.length" @click="emit('replace', [...selectedIds])">
             Find replacements<span v-if="selectedIds.length"> ({{ selectedIds.length }})</span>
           </button>
-          <button type="button" class="flex min-h-11 items-center justify-center gap-2 bg-thread-ink px-5 text-xs font-medium text-white transition hover:opacity-90" @click="emit('accept')">
+          <button type="button" class="flex min-h-11 items-center justify-center gap-2 rounded-full bg-thread-ink px-5 text-xs font-medium text-white transition hover:bg-thread-accent" @click="emit('accept')">
             <Check class="h-4 w-4" aria-hidden="true" /> Keep all items
           </button>
         </div>
@@ -133,7 +133,7 @@ onUnmounted(() => {
         <h3 id="recommendation-review-title" class="mt-2 font-editorial text-3xl">Your edit is confirmed.</h3>
         <p class="mt-2 text-sm leading-6 text-thread-muted">The prompt and accepted products are saved. Another pass will keep the useful style cues without repeating prior product links.</p>
       </div>
-      <button type="button" class="flex min-h-11 shrink-0 items-center justify-center gap-2 border border-thread-ink px-5 text-xs font-medium transition hover:bg-thread-soft" @click="emit('researchAgain')">
+      <button type="button" class="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-thread-ink px-5 text-xs font-medium transition hover:bg-white/55" @click="emit('researchAgain')">
         <RefreshCw class="h-4 w-4" aria-hidden="true" /> Research again
       </button>
     </div>

@@ -98,9 +98,9 @@ function addFirstResult() {
 </script>
 
 <template>
-  <aside class="fixed bottom-4 right-4 z-[80] w-[min(92vw,620px)] border border-white/20 bg-[#25221d] text-[#f7f3eb] shadow-2xl" aria-label="THREAD development panel">
+  <aside class="fixed bottom-4 right-4 z-[80] w-[min(92vw,620px)] border border-white/20 bg-[#251920] text-[#fbf8fa] shadow-2xl" aria-label="Rove development panel">
     <button type="button" class="flex min-h-12 w-full cursor-pointer items-center justify-between px-4 text-left" :aria-expanded="open" @click="open = !open">
-      <span class="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em]"><Bug class="h-4 w-4" aria-hidden="true" /> THREAD debug</span>
+      <span class="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em]"><Bug class="h-4 w-4" aria-hidden="true" /> Rove debug</span>
       <ChevronDown class="h-4 w-4 transition" :class="open ? 'rotate-180' : ''" aria-hidden="true" />
     </button>
     <div v-if="open" class="thread-scrollbar max-h-[76dvh] overflow-y-auto border-t border-white/15 p-4 text-xs">

@@ -8,14 +8,14 @@ type ThreadActions = ReturnType<typeof createThreadActions>
 export function addToCartTool(actions: ThreadActions): WebMCPToolDefinition {
   return {
     name: 'add_to_cart',
-    title: 'Add product to Thread',
-    description: 'Add an enriched mission product to the shared browser-local cart. Apparel with known sizes or colours requires an explicit variant; candidate-only products must be enriched first. Exact variant duplicates are prevented.',
+    title: 'Add product to Your Thread',
+    description: 'Add an enriched mission product to the shared browser-local cart. Provide a size or colour only when that product exposes the corresponding choices. Fixed-listing products such as fragrance ignore apparel variants. Exact product-and-variant duplicates are prevented.',
     inputSchema: {
       type: 'object',
       properties: {
-        productId: { type: 'string', description: 'Exact Thread ID returned by a product tool.' },
-        size: { type: 'string', description: 'Optional available product size.' },
-        color: { type: 'string', description: 'Optional available product colour.' },
+        productId: { type: 'string', description: 'Exact Rove product ID returned by a product tool.' },
+        size: { type: 'string', description: 'Available size when the product exposes size choices; otherwise omit.' },
+        color: { type: 'string', description: 'Available colour when the product exposes colour choices; otherwise omit.' },
       },
       required: ['productId'],
       additionalProperties: false,

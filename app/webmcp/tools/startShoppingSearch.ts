@@ -54,7 +54,7 @@ export function startShoppingSearchTool(actions: ThreadActions): WebMCPToolDefin
   return {
     name: 'start_shopping_search',
     title: 'Start a shopping mission',
-    description: 'The one entry point for a new shopping request. Translate the user’s goal into optional structured context and concrete needs; THREAD validates it, ranks every eligible retailer, persists the session, and creates the research queue.',
+    description: 'The one entry point for a new shopping request. Translate the user’s goal into optional structured context and concrete needs; Rove validates it, ranks every eligible retailer, persists the session, and creates the research queue.',
     inputSchema: {
       type: 'object',
       properties: {

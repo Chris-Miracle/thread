@@ -1,20 +1,20 @@
-# THREAD
+# Rove
 
 > A shared fashion research workspace for people and browser agents.
 
-THREAD’s product thesis is:
+Rove’s product thesis is:
 
-> “THREAD is a shared fashion research workspace where a browser agent researches the open web and progressively publishes products into the same workspace that the human is simultaneously browsing, filtering, inspecting, and curating.”
+> “Rove is a shared fashion research workspace where a browser agent researches the open web and progressively publishes products into the same workspace that the human is simultaneously browsing, filtering, inspecting, and curating.”
 
-The browser agent supplies web navigation and intelligence. THREAD supplies the typed shopping mission, profile, retailer semantics, deterministic research scheduler, candidate validation, product ranking, persistence, cart, human interface, and WebMCP tools.
+The browser agent supplies web navigation and intelligence. Rove supplies the typed shopping mission, profile, retailer semantics, deterministic research scheduler, candidate validation, product ranking, persistence, cart, human interface, and WebMCP tools.
 
-THREAD is a client-only Nuxt 4 / Vue 3 / strict TypeScript / Tailwind application for the [OpenAI WebMCP Challenge](https://openai.com/webmcp-challenge/). It has no backend, database server, API key, OpenAI API call, embedded chatbot, MCP server, scraping service, product-aggregation service, account system, or cloud persistence. The static build remains usable when WebMCP is unavailable.
+Rove is a client-only Nuxt 4 / Vue 3 / strict TypeScript / Tailwind application for the [OpenAI WebMCP Challenge](https://openai.com/webmcp-challenge/). It has no backend, database server, API key, OpenAI API call, embedded chatbot, MCP server, scraping service, product-aggregation service, account system, or cloud persistence. The static build remains usable when WebMCP is unavailable.
 
 ## Human and agent share one state
 
 ```mermaid
 flowchart LR
-  Human[Human interface] --> Actions[Canonical THREAD actions]
+  Human[Human interface] --> Actions[Canonical Rove actions]
   Agent[Browser agent] --> MCP[document.modelContext tools]
   MCP --> Actions
   Actions --> Profile[Profile]
@@ -31,7 +31,7 @@ flowchart LR
 
 Human and WebMCP operations converge on `app/domain/threadActions.ts`; the UI does not maintain a parallel implementation. A human can keep filtering, browsing, opening details, and managing the cart while the browser agent claims retailer work and progressively publishes products.
 
-THREAD supports one workspace tab plus browser-agent-controlled retailer tabs. Cross-tab THREAD state synchronization is intentionally not claimed. Search IDs and target claims prevent old retailer workers from publishing into a replacement, cancelled, or completed mission.
+Rove supports one workspace tab plus browser-agent-controlled retailer tabs. Cross-tab Rove state synchronization is intentionally not claimed. Search IDs and target claims prevent old retailer workers from publishing into a replacement, cancelled, or completed mission.
 
 ## SearchMission
 
@@ -44,7 +44,7 @@ THREAD supports one workspace tab plus browser-agent-controlled retailer tabs. C
 - explicit per-item and overall CAD budgets, category, retailer, and exclusion constraints;
 - the final deduplicated query set and creation time.
 
-The browser agent can provide structured semantic context. THREAD also performs small deterministic fallbacks: it recognizes simple categories and budgets, and expands an obvious vacation request such as “Get my clothes for vacation in Cancun” into resort-daytime, beach/pool, and evening-dinner needs. It does not call an LLM or pretend to browse.
+The browser agent can provide structured semantic context. Rove also performs small deterministic fallbacks: it recognizes simple categories and budgets, and expands an obvious vacation request such as “Get my clothes for vacation in Cancun” into resort-daytime, beach/pool, and evening-dinner needs. It does not call an LLM or pretend to browse.
 
 ## Retailer adapters and research queue
 
@@ -70,18 +70,18 @@ queued → skipped (only after required needs are satisfied)
 
 `claim_search_targets` returns only 1–4 targets at a time. Priority is recalculated at every claim from the needs that remain unfulfilled, with extra weight for required and scarce capabilities such as fragrance. Each target contains a small need-specific query set and browser-ready URLs. `complete` requires at least one accepted product; zero-product checks must use `no-results` with a reason, and failures require a reason.
 
-THREAD builds a deterministic proposed basket from grounded products with verified CAD prices. A mission may stop early only when every required quantity fits its per-need budget and the overall budget, no target is still claimed or exploring, and every untouched queued target is retained as `skipped` with the reason “skipped after satisfaction.” Otherwise the full plan continues. The original target plan is never rewritten to manufacture completion.
+Rove builds a deterministic proposed basket from grounded products with verified CAD prices. A mission may stop early only when every required quantity fits its per-need budget and the overall budget, no target is still claimed or exploring, and every untouched queued target is retained as `skipped` with the reason “skipped after satisfaction.” Otherwise the full plan continues. The original target plan is never rewritten to manufacture completion.
 
 ## Candidates, enrichment, integrity, and ranking
 
 Product publication is intentionally two-stage:
 
-1. `publish_candidates` accepts listing-page candidates with `url` and `name` as the minimum fields. Price, image, brand, category, and department can be supplied when observed.
+1. `publish_candidates` accepts listing-page candidates with canonical `url`, `name`, and a direct product `image` as required fields. Price, brand, category, and department can be supplied when observed.
 2. `enrich_product` adds variants, availability, material, description, tags, and detailed pricing when the user inspects or wants to cart a candidate.
 
-THREAD derives canonical product ID, search ID, target ID, observed time, source, and known retailer identity. For known retailers, submitted names never override the registry. Retailer targets reject products from another domain. Discovery targets may introduce an unknown canonical retailer product page, but never a search, Pinterest, Google, social, placeholder, or root URL.
+Rove derives canonical product ID, search ID, target ID, observed time, source, and known retailer identity. For known retailers, submitted names never override the registry. Retailer targets reject products from another domain. Discovery targets may introduce an unknown canonical retailer product page, but never a search, Pinterest, Google, social, placeholder, or root URL.
 
-Hard mission constraints are enforced inside THREAD:
+Hard mission constraints are enforced inside Rove:
 
 - shopping department;
 - explicit category;
@@ -91,15 +91,15 @@ Hard mission constraints are enforced inside THREAD:
 - target and product domain;
 - product-like canonical URL.
 
-Pricing keeps `nativePrice`, `nativeCurrency`, and `priceCad` separate. CAD listings derive `priceCad` directly. Non-CAD listings require an explicitly verified `priceCad`; THREAD never guesses an exchange rate or compares unlike currencies.
+Pricing keeps `nativePrice`, `nativeCurrency`, and `priceCad` separate. CAD listings derive `priceCad` directly. Non-CAD listings require an explicitly verified `priceCad`; Rove never guesses an exchange rate or compares unlike currencies.
 
-The active session retains up to 600 unique candidates. When the documented limit is reached, new unique candidates are explicitly rejected; existing data is never silently truncated. THREAD refuses to replace an active mission; it must first be completed, satisfied, cancelled, or explicitly abandoned. Up to three terminal sessions are retained as read-only recent searches, while cart snapshots remain stable.
+The active session retains up to 600 unique candidates. When the documented limit is reached, new unique candidates are explicitly rejected; existing data is never silently truncated. Rove refuses to replace an active mission; it must first be completed, satisfied, cancelled, or explicitly abandoned. Up to three terminal sessions are retained as read-only recent searches, while cart snapshots remain stable.
 
 Recommended order is deterministic rather than arrival order. It combines mission/query/category relevance, profile style match, occasion match, budget fit, retailer relevance, availability, freshness, and completeness. A greedy diversity pass then applies retailer repetition and near-duplicate penalties plus category-coverage bonuses.
 
 ## Browser-local persistence and trace
 
-The current versioned keys are:
+The current versioned keys retain their original `thread.*` namespace so the Rove rebrand never discards existing browser-local data:
 
 - `thread.profile.v4`;
 - `thread.search.v4`;
@@ -109,7 +109,7 @@ Legacy v1/v3 profile, v3 search, and v1 cart snapshots are migrated when possibl
 
 Trace events include search creation, target ranking and claims, candidate receipt/acceptance/rejection, target completion/failure, enrichment, satisfaction, completion, and cancellation. Open `?debug=true` in development to inspect the exact state and trace, refresh registered tools, or run a fixture-backed end-to-end simulation. The small catalog in `app/data/products.ts` is used only by tests and that debug simulator; it is not exposed as normal shopping discovery.
 
-Profiles expose exactly 15 curated styles derived from Copnow’s broader taxonomy while preserving THREAD’s existing IDs. The human selector requires 3–10 choices. Identity and body details are optional, self-described, browser-local, and never used to infer skin tone.
+Profiles expose exactly 15 curated styles derived from Copnow’s broader taxonomy while preserving Rove’s existing IDs. The human selector requires 3–10 choices. Identity and body details are optional, self-described, browser-local, and never used to infer skin tone.
 
 ## Discovery interface and commerce boundary
 
@@ -117,11 +117,11 @@ Products render in a lightweight CSS-column masonry feed: roughly two columns on
 
 The human can filter by retailer, brand, category, and verified CAD price; sort by recommendation, price, or observation time; inspect candidate provenance; open the canonical product page; and add enriched variants to the cart.
 
-THREAD is a cross-store meta-cart, not a unified checkout or inventory system. Apparel with known sizes or colours requires an explicit selection. Candidate-only products must be enriched or opened at the retailer. Checkout always remains on each official retailer page.
+Your Thread is a cross-store meta-cart, not a unified checkout or inventory system. Products require only the variants their listing actually exposes: apparel may require size or colour, while fragrance and fixed-listing accessories are added as listed. Candidate-only products must be enriched or opened at the retailer. Checkout always remains on each official retailer page.
 
 ## WebMCP tools
 
-THREAD registers fourteen imperative tools:
+Rove registers seventeen imperative tools:
 
 | Tool | Mode | Purpose |
 | --- | --- | --- |
@@ -135,6 +135,9 @@ THREAD registers fourteen imperative tools:
 | `complete_search_target` | Mutating | Resolve a target as complete, no-results, or failed. |
 | `get_search_status` | Read only | Read mission, fulfillment/budgets, target states, coverage, and next action. |
 | `get_products` | Read only | Page/filter/sort up to 100 ranked products at a time. |
+| `review_recommendations` | Mutating | Accept a completed edit or replace only selected products. |
+| `research_again` | Mutating | Start a fresh pass without repeating prior product links. |
+| `get_research_history` | Read only | Read saved prompts and accepted edits. |
 | `cancel_search` | Mutating | Cancel or abandon unresolved work while preserving accepted products. |
 | `get_cart` | Read only | Read the exact shared cart and CAD total. |
 | `add_to_cart` | Mutating | Add an enriched exact product variant. |
@@ -149,7 +152,7 @@ const controller = new AbortController()
 
 await document.modelContext.registerTool({
   name: 'get_profile',
-  title: 'Get THREAD profile',
+  title: 'Get Rove profile',
   description: 'Read the browser-local shopping profile before starting a mission.',
   inputSchema: {
     type: 'object',
@@ -165,7 +168,7 @@ await document.modelContext.registerTool({
 }, { signal: controller.signal })
 ```
 
-THREAD uses `document.modelContext`, not `navigator.modelContext`, a custom MCP server, or declarative form tools.
+Rove uses `document.modelContext`, not `navigator.modelContext`, a custom MCP server, or declarative form tools.
 
 ## Run and verify
 
@@ -242,7 +245,7 @@ Representative mission creation:
 }
 ```
 
-Also verify the simpler request `Find me a black shirt under $70 CAD`; THREAD should store a tops constraint, enforce the CAD budget, and still schedule retailers by relevance rather than registry order.
+Also verify the simpler request `Find me a black shirt under $70 CAD`; Rove should store a tops constraint, enforce the CAD budget, and still schedule retailers by relevance rather than registry order.
 
 ## Project structure
 
@@ -263,5 +266,5 @@ app/
 ├── plugins/                 state hydration and client-only WebMCP registration
 ├── types/                   strict domain contracts
 └── webmcp/                  closed schemas, outputs, registration, tools
-tests/                       48 deterministic unit/integration tests
+tests/                       deterministic unit/integration tests
 ```

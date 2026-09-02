@@ -26,10 +26,10 @@ function toggle(style: StyleId) {
         v-for="style in STYLE_OPTIONS"
         :key="style.id"
         type="button"
-        class="group relative min-h-24 cursor-pointer border p-3.5 text-left transition duration-200"
+        class="group relative min-h-24 cursor-pointer rounded-2xl border p-3.5 text-left transition duration-200"
         :class="modelValue.includes(style.id)
           ? 'border-thread-ink bg-thread-ink text-white'
-          : 'border-thread-line bg-thread-surface text-thread-ink hover:border-thread-accent disabled:cursor-not-allowed disabled:opacity-45'"
+          : 'border-thread-line bg-white/55 text-thread-ink hover:border-thread-accent disabled:cursor-not-allowed disabled:opacity-45'"
         :disabled="modelValue.length >= MAX_PROFILE_STYLES && !modelValue.includes(style.id)"
         :aria-pressed="modelValue.includes(style.id)"
         @click="toggle(style.id)"

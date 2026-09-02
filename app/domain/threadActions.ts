@@ -7,6 +7,7 @@ import {
 } from '~/domain/profile/profile'
 import { applyProductEnrichment, mergeCandidate, normalizeCandidate } from '~/domain/products/productValidation'
 import { rankAndDiversifyProducts } from '~/domain/products/productRanking'
+import { resolveCartVariant } from '~/domain/products/productVariants'
 import { getSessionCollectionProducts, getSessionRootPrompt, getSessionRootSearchId } from '~/domain/research/collection'
 import { evaluateMissionFulfillment } from '~/domain/research/fulfillment'
 import { archiveReviewedSearch, cloneResearchHistory, hydrateResearchHistory, recordSeenProducts } from '~/domain/research/history'
@@ -71,6 +72,15 @@ function cloneTarget(target: ResearchTarget): ResearchTarget {
   }
 }
 
+function cloneRecommendationReview(review: RecommendationReview): RecommendationReview {
+  return {
+    ...review,
+    productIds: [...review.productIds],
+    likedProductIds: [...review.likedProductIds],
+    rejectedProductIds: [...review.rejectedProductIds],
+  }
+}
+
 function cloneSession(session: SearchSession): SearchSession {
   return {
     ...session,
@@ -109,12 +119,7 @@ function cloneSession(session: SearchSession): SearchSession {
     },
     telemetry: session.telemetry.map(event => ({ ...event, details: event.details ? { ...event.details } : undefined })),
     recommendationReview: session.recommendationReview
-      ? {
-          ...session.recommendationReview,
-          productIds: [...session.recommendationReview.productIds],
-          likedProductIds: [...session.recommendationReview.likedProductIds],
-          rejectedProductIds: [...session.recommendationReview.rejectedProductIds],
-        }
+      ? cloneRecommendationReview(session.recommendationReview)
       : undefined,
     replacementContext: session.replacementContext
       ? {
@@ -236,17 +241,17 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     const session = currentSession(searchId)
     const review = session.recommendationReview
     if (session !== deps.search.value.activeSearch) {
-      return { expired: false, searchId: session.id, review: review ? { ...review } : null, nextAction: reviewNextAction(session) }
+      return { expired: false, searchId: session.id, review: review ? cloneRecommendationReview(review) : null, nextAction: reviewNextAction(session) }
     }
     if (!review || review.status !== 'pending') {
-      return { expired: false, searchId: session.id, review: review ? { ...review } : null, nextAction: reviewNextAction(session) }
+      return { expired: false, searchId: session.id, review: review ? cloneRecommendationReview(review) : null, nextAction: reviewNextAction(session) }
     }
     if (Date.parse(now) < Date.parse(review.deadlineAt)) {
-      return { expired: false, searchId: session.id, review: { ...review }, nextAction: 'review_recommendations' as const }
+      return { expired: false, searchId: session.id, review: cloneRecommendationReview(review), nextAction: 'review_recommendations' as const }
     }
     const reviewed = finalizeRecommendationReview(session, 'timeout-accepted', review.productIds, [], now)
-    deps.notify?.('Review time elapsed, so THREAD saved the current recommendations as accepted.')
-    return { expired: true, searchId: reviewed.id, review: { ...reviewed.recommendationReview! }, nextAction: 'research_again' as const }
+    deps.notify?.('Review time elapsed, so Rove saved the current recommendations as accepted.')
+    return { expired: true, searchId: reviewed.id, review: cloneRecommendationReview(reviewed.recommendationReview!), nextAction: 'research_again' as const }
   }
 
   function hydrate(): void {
@@ -305,7 +310,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       styles: input.styles,
     }, true)
     persistProfile()
-    if (source !== 'debug') deps.notify?.(`Welcome to THREAD, ${deps.profile.value.name}.`)
+    if (source !== 'debug') deps.notify?.(`Welcome to Rove, ${deps.profile.value.name}.`)
     return getProfile()!
   }
 
@@ -319,7 +324,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     }, false)
     deps.profile.value = profile
     persistProfile()
-    deps.notify?.(existing ? 'Agent updated your THREAD profile.' : `Agent set up THREAD for ${profile.name}.`)
+    deps.notify?.(existing ? 'Agent updated your Rove profile.' : `Agent set up Rove for ${profile.name}.`)
     return { status: existing ? 'updated' as const : 'created' as const, profile: getProfile()! }
   }
 
@@ -328,7 +333,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     if (!current) throw new Error('No profile exists. Call setup_profile first.')
     deps.profile.value = mergeProfile(current, input)
     persistProfile()
-    deps.notify?.('Agent updated your THREAD profile.')
+    deps.notify?.('Agent updated your Rove profile.')
     return getProfile()!
   }
 
@@ -621,7 +626,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     if (session.status !== 'active' && !session.recommendationReview) {
       session = { ...session, recommendationReview: createRecommendationReview(session, now) }
       if (session.recommendationReview) {
-        deps.notify?.('Research is complete. Review the recommendations before THREAD saves them.')
+        deps.notify?.('Research is complete. Review the recommendations before Rove saves them.')
       }
     }
     session = commitSession(session, now)
@@ -721,7 +726,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     if (input.decision === 'accept-all') {
       const reviewed = finalizeRecommendationReview(session, 'user-accepted', review.productIds, [], new Date().toISOString())
       deps.notify?.('Recommendations accepted and saved locally.')
-      return { searchId: reviewed.id, review: { ...reviewed.recommendationReview! }, nextAction: 'research_again' as const }
+      return { searchId: reviewed.id, review: cloneRecommendationReview(reviewed.recommendationReview!), nextAction: 'research_again' as const }
     }
     const rejectedProductIds = input.decision === 'replace-all'
       ? [...review.productIds]
@@ -752,7 +757,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       persistSearch()
     }
     deps.notify?.(`Fresh research started for ${rejectedProductIds.length} replacement${rejectedProductIds.length === 1 ? '' : 's'}.`)
-    return { searchId: reviewed.id, review: { ...reviewed.recommendationReview!, replacementSearchId: replacement.searchId }, replacement, nextAction: 'claim_search_targets' as const }
+    return { searchId: reviewed.id, review: { ...cloneRecommendationReview(reviewed.recommendationReview!), replacementSearchId: replacement.searchId }, replacement, nextAction: 'claim_search_targets' as const }
   }
 
   function researchAgain(input: { searchId: string; productIds?: string[] }) {
@@ -879,21 +884,18 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     if (!product) throw new Error(`Product not found: ${productId}`)
     if (product.availability === 'out-of-stock') throw new Error(`${product.name} is marked out of stock.`)
     if (product.stage !== 'enriched') throw new Error('This candidate needs product enrichment before it can be added. Open the retailer page to verify variants.')
-    if (product.sizes.length && !options.size) throw new Error(`Select a size for ${product.name}.`)
-    if (product.colors.length && !options.color) throw new Error(`Select a colour for ${product.name}.`)
-    if (options.size && !product.sizes.includes(options.size)) throw new Error(`${options.size} is not an available size for ${product.name}.`)
-    if (options.color && !product.colors.includes(options.color)) throw new Error(`${options.color} is not an available colour for ${product.name}.`)
-    const id = cartItemId(product.id, options.size, options.color)
+    const variant = resolveCartVariant(product, options)
+    const id = cartItemId(product.id, variant.size, variant.color)
     const existing = deps.cart.value.items.find(item => item.id === id)
     if (existing) {
       const summary = getCart()
       return { success: true, duplicate: true, item: { ...existing, product: cloneProduct(existing.product) }, cartCount: summary.itemCount, totals: summary.totals }
     }
-    const item = { id, productId: product.id, product, size: options.size, color: options.color, addedAt: new Date().toISOString() }
+    const item = { id, productId: product.id, product, size: variant.size, color: variant.color, addedAt: new Date().toISOString() }
     deps.cart.value = { version: 3, items: [...deps.cart.value.items, item] }
     persistCart()
-    if (source === 'agent') deps.notify?.(`Agent added ${product.name} to your THREAD.`)
-    else if (source === 'human') deps.notify?.(`${product.name} added to your THREAD.`)
+    if (source === 'agent') deps.notify?.(`Agent added ${product.name} to Your Thread.`)
+    else if (source === 'human') deps.notify?.(`${product.name} added to Your Thread.`)
     const summary = getCart()
     return { success: true, duplicate: false, item: { ...item, product: cloneProduct(product) }, cartCount: summary.itemCount, totals: summary.totals }
   }
@@ -903,7 +905,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     if (!item) return false
     deps.cart.value = { version: 3, items: deps.cart.value.items.filter(candidate => candidate.id !== itemId) }
     persistCart()
-    if (source === 'agent') deps.notify?.(`Agent removed ${item.product.name} from your THREAD.`)
+    if (source === 'agent') deps.notify?.(`Agent removed ${item.product.name} from Your Thread.`)
     return true
   }
 

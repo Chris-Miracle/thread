@@ -49,7 +49,7 @@ watch(selectedSearchId, () => { filters.value = emptyResultFilters() })
         v-for="entry in entries"
         :key="entry.searchId"
         type="button"
-        class="min-h-20 w-72 shrink-0 cursor-pointer border p-3 text-left transition"
+        class="min-h-20 w-72 shrink-0 cursor-pointer rounded-2xl border p-3 text-left transition"
         :class="entry.searchId === selectedEntry?.searchId ? 'border-thread-ink bg-thread-ink text-white' : 'border-thread-line bg-thread-surface hover:border-thread-ink'"
         :aria-current="entry.searchId === selectedEntry?.searchId ? 'true' : undefined"
         @click="selectedSearchId = entry.searchId"
@@ -59,7 +59,7 @@ watch(selectedSearchId, () => { filters.value = emptyResultFilters() })
       </button>
     </div>
 
-    <article v-if="selectedEntry" class="mt-5 border border-thread-line bg-thread-surface p-5 sm:p-7">
+    <article v-if="selectedEntry" class="rove-glass-card mt-5 rounded-[2rem] p-5 sm:p-7">
       <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div class="min-w-0">
           <p class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-green-700">

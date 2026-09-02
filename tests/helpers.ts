@@ -29,6 +29,7 @@ export function makeActions(options: {
   profile?: StyleProfile | null
   storage?: MemoryStorage
   hydrated?: boolean
+  fixtures?: readonly Product[]
 } = {}) {
   const profile = ref<StyleProfile | null>(options.profile === undefined ? DEFAULT_PROFILE : options.profile)
   const cart = ref<CartState>({ version: 3, items: [] })
@@ -41,7 +42,7 @@ export function makeActions(options: {
     search,
     hydrated,
     storage,
-    fixtures: PRODUCTS,
+    fixtures: options.fixtures ?? PRODUCTS,
   })
   return { actions, profile, cart, search, hydrated, storage }
 }

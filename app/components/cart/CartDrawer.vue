@@ -55,13 +55,13 @@ function clearConfirmed() {
 <template>
   <div class="fixed inset-0 z-50 bg-black/50" role="presentation" @click.self="emit('close')">
     <Transition appear name="drawer">
-      <aside ref="dialog" role="dialog" aria-modal="true" aria-labelledby="cart-title" class="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-thread-surface shadow-soft">
+      <aside ref="dialog" role="dialog" aria-modal="true" aria-labelledby="cart-title" class="rove-glass-strong absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l shadow-glass">
         <header class="flex h-[72px] shrink-0 items-center justify-between border-b border-thread-line px-5 sm:px-6">
           <div>
             <h2 id="cart-title" class="font-editorial text-3xl">Your Thread</h2>
             <p class="text-xs text-thread-muted">{{ cart.itemCount }} {{ cart.itemCount === 1 ? 'piece' : 'pieces' }} across stores</p>
           </div>
-          <button ref="closeButton" type="button" class="flex h-11 w-11 cursor-pointer items-center justify-center transition hover:bg-thread-soft" aria-label="Close cart" @click="emit('close')">
+          <button ref="closeButton" type="button" class="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/60" aria-label="Close cart" @click="emit('close')">
             <X class="h-5 w-5" aria-hidden="true" />
           </button>
         </header>
@@ -84,7 +84,7 @@ function clearConfirmed() {
             <span class="text-lg font-medium tabular-nums">{{ formatMoney(total.subtotal, total.currency) }}</span>
           </div>
           <p v-if="cart.unpricedItemCount" class="mb-3 text-xs text-thread-muted">{{ cart.unpricedItemCount }} {{ cart.unpricedItemCount === 1 ? 'item has' : 'items have' }} no verified CAD price and {{ cart.unpricedItemCount === 1 ? 'is' : 'are' }} excluded from the subtotal.</p>
-          <p class="border border-thread-line bg-thread-surface px-4 py-3 text-center text-[11px] leading-5 text-thread-muted">Use each “Buy at retailer” link above. Thread never pretends to complete a retailer checkout.</p>
+          <p class="rounded-2xl border border-thread-line bg-white/45 px-4 py-3 text-center text-[11px] leading-5 text-thread-muted">Use each “Buy at retailer” link above. Rove never pretends to complete a retailer checkout.</p>
           <div v-if="cart.items.length" class="mt-4 flex min-h-11 items-center justify-center">
             <button v-if="!confirmClear" type="button" class="cursor-pointer text-xs text-thread-muted underline decoration-thread-line underline-offset-4 transition hover:text-thread-danger" @click="confirmClear = true">Clear cart</button>
             <div v-else class="flex items-center gap-4 text-xs">

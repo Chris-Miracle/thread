@@ -8,7 +8,7 @@ type ThreadActions = ReturnType<typeof createThreadActions>
 export function removeFromCartTool(actions: ThreadActions): WebMCPToolDefinition {
   return {
     name: 'remove_from_cart',
-    title: 'Remove item from Thread',
+    title: 'Remove item from Your Thread',
     description: 'Remove one exact cart entry by its collision-safe item ID. Read get_cart first when the item ID is unknown. The visible human cart updates immediately.',
     inputSchema: {
       type: 'object',

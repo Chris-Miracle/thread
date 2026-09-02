@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ExternalLink, ShoppingBag, X } from 'lucide-vue-next'
+import { getProductVariantPolicy } from '~/domain/products/productVariants'
 import type { Product } from '~/types/thread'
 import { formatMoney } from '~/utils/money'
 
@@ -15,9 +16,15 @@ const displayPrice = computed(() => props.product.priceCad !== undefined
   : props.product.nativePrice !== undefined && props.product.nativeCurrency
     ? formatMoney(props.product.nativePrice, props.product.nativeCurrency)
     : 'Price not verified')
+const variantPolicy = computed(() => getProductVariantPolicy(props.product))
 const variantReady = computed(() => props.product.stage === 'enriched'
-  && (!props.product.sizes.length || Boolean(selectedSize.value))
-  && (!props.product.colors.length || Boolean(selectedColor.value)))
+  && (!variantPolicy.value.requiresSize || Boolean(selectedSize.value))
+  && (!variantPolicy.value.requiresColor || Boolean(selectedColor.value)))
+
+watch(() => props.product.id, () => {
+  selectedSize.value = ''
+  selectedColor.value = ''
+})
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close')
@@ -48,8 +55,8 @@ onUnmounted(() => {
 
 <template>
   <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-6" role="presentation" @click.self="emit('close')">
-    <section ref="dialog" role="dialog" aria-modal="true" :aria-labelledby="`product-title-${product.id}`" class="relative max-h-[94dvh] w-full max-w-5xl overflow-y-auto bg-thread-surface shadow-soft sm:max-h-[88dvh]">
-      <button ref="closeButton" type="button" class="absolute right-3 top-3 z-10 flex h-11 w-11 cursor-pointer items-center justify-center bg-thread-surface text-thread-ink transition hover:bg-thread-ink hover:text-white" aria-label="Close product details" @click="emit('close')">
+    <section ref="dialog" role="dialog" aria-modal="true" :aria-labelledby="`product-title-${product.id}`" class="rove-glass-strong relative max-h-[94dvh] w-full max-w-5xl overflow-y-auto rounded-t-[1.75rem] border shadow-glass sm:max-h-[88dvh] sm:rounded-[1.75rem]">
+      <button ref="closeButton" type="button" class="rove-glass absolute right-3 top-3 z-10 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border text-thread-ink transition hover:bg-thread-ink hover:text-white" aria-label="Close product details" @click="emit('close')">
         <X class="h-5 w-5" aria-hidden="true" />
       </button>
       <div class="grid md:grid-cols-2">
@@ -78,41 +85,45 @@ onUnmounted(() => {
           <p v-if="product.description" class="mt-5 text-sm leading-6 text-thread-muted">{{ product.description }}</p>
           <p v-if="product.material" class="mt-3 text-xs leading-5 text-thread-muted"><span class="font-medium text-thread-ink">Material:</span> {{ product.material }}</p>
 
-          <div v-if="product.stage === 'candidate'" class="mt-7 border border-thread-line bg-thread-canvas p-4">
+          <div v-if="product.stage === 'candidate'" class="mt-7 rounded-2xl border border-thread-line bg-white/45 p-4">
             <p class="text-sm font-medium">Candidate details are not enriched yet.</p>
             <p class="mt-2 text-xs leading-5 text-thread-muted">Ask your browser agent to inspect this product with <code>enrich_product</code>, or continue on the retailer page to verify price, stock, sizes, and colours.</p>
           </div>
 
           <template v-else>
-            <label v-if="product.colors.length" class="mt-7 block text-xs font-medium text-thread-muted">Colour
-              <select v-model="selectedColor" class="mt-2 min-h-11 w-full border border-thread-line bg-white px-3 text-sm text-thread-ink">
+            <label v-if="variantPolicy.requiresColor" class="mt-7 block text-xs font-medium text-thread-muted">Colour
+              <select v-model="selectedColor" class="mt-2 min-h-11 w-full rounded-xl border border-thread-line bg-white/75 px-3 text-sm text-thread-ink">
                 <option value="" disabled>Select a colour</option>
-                <option v-for="color in product.colors" :key="color" :value="color">{{ color }}</option>
+                <option v-for="color in variantPolicy.colorOptions" :key="color" :value="color">{{ color }}</option>
               </select>
             </label>
-            <label v-if="product.sizes.length" class="mt-5 block text-xs font-medium text-thread-muted">Size
-              <select v-model="selectedSize" class="mt-2 min-h-11 w-full border border-thread-line bg-white px-3 text-sm text-thread-ink">
+            <label v-if="variantPolicy.requiresSize" class="mt-5 block text-xs font-medium text-thread-muted">Size
+              <select v-model="selectedSize" class="mt-2 min-h-11 w-full rounded-xl border border-thread-line bg-white/75 px-3 text-sm text-thread-ink">
                 <option value="" disabled>Select a size</option>
-                <option v-for="size in product.sizes" :key="size" :value="size">{{ size }}</option>
+                <option v-for="size in variantPolicy.sizeOptions" :key="size" :value="size">{{ size }}</option>
               </select>
             </label>
+            <div v-if="!variantPolicy.requiresColor && !variantPolicy.requiresSize" class="mt-7 rounded-2xl border border-thread-line bg-white/45 p-4">
+              <p class="text-sm font-medium">Ready as listed</p>
+              <p class="mt-1 text-xs leading-5 text-thread-muted">{{ variantPolicy.guidance }}</p>
+            </div>
           </template>
 
           <div class="mt-8 grid gap-3 sm:grid-cols-2">
             <button
               v-if="product.stage === 'enriched'"
               type="button"
-              class="flex min-h-12 cursor-pointer items-center justify-center gap-2 bg-thread-ink px-4 text-sm font-medium text-white transition hover:bg-thread-accent disabled:cursor-not-allowed disabled:opacity-45"
+              class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full bg-thread-ink px-4 text-sm font-medium text-white transition hover:bg-thread-accent disabled:cursor-not-allowed disabled:opacity-45"
               :disabled="!variantReady"
               @click="emit('add', { size: selectedSize || undefined, color: selectedColor || undefined })"
             >
-              <ShoppingBag class="h-4 w-4" aria-hidden="true" /> Add to your Thread
+              <ShoppingBag class="h-4 w-4" aria-hidden="true" /> Add to Your Thread
             </button>
-            <a :href="product.url" target="_blank" rel="noopener noreferrer" class="flex min-h-12 items-center justify-center gap-2 border border-thread-line px-4 text-sm font-medium transition hover:border-thread-ink">
+            <a :href="product.url" target="_blank" rel="noopener noreferrer" class="flex min-h-12 items-center justify-center gap-2 rounded-full border border-thread-line bg-white/45 px-4 text-sm font-medium transition hover:border-thread-ink">
               Open retailer <ExternalLink class="h-4 w-4" aria-hidden="true" />
             </a>
           </div>
-          <p class="mt-5 text-[11px] leading-5 text-thread-muted">Observed {{ new Date(product.observedAt).toLocaleString('en-CA') }}. THREAD does not perform retailer checkout or guarantee current stock.</p>
+          <p class="mt-5 text-[11px] leading-5 text-thread-muted">Observed {{ new Date(product.observedAt).toLocaleString('en-CA') }}. Rove does not perform retailer checkout or guarantee current stock.</p>
         </div>
       </div>
     </section>

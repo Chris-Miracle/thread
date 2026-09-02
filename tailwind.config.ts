@@ -11,14 +11,14 @@ export default <Partial<Config>>{
     extend: {
       colors: {
         thread: {
-          canvas: '#f5f1e9',
-          surface: '#fbf9f4',
-          ink: '#1d1c19',
-          muted: '#6f6b62',
-          line: '#d8d2c7',
-          accent: '#7a674f',
-          soft: '#e9e1d5',
-          danger: '#9f342d',
+          canvas: '#f3edf0',
+          surface: '#fbf8fa',
+          ink: '#251920',
+          muted: '#6b5d65',
+          line: '#d9cbd2',
+          accent: '#7c3f5b',
+          soft: '#eadfe5',
+          danger: '#a3384a',
         },
       },
       fontFamily: {
@@ -26,7 +26,8 @@ export default <Partial<Config>>{
         editorial: ['Instrument Serif', 'Georgia', 'serif'],
       },
       boxShadow: {
-        soft: '0 18px 50px rgba(43, 38, 31, 0.10)',
+        soft: '0 20px 58px rgba(58, 35, 47, 0.12)',
+        glass: '0 24px 70px rgba(58, 35, 47, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.78)',
       },
     },
   },

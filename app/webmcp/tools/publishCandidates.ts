@@ -32,7 +32,7 @@ export function publishCandidatesTool(actions: ThreadActions): WebMCPToolDefinit
   return {
     name: 'publish_candidates',
     title: 'Publish product candidates',
-    description: 'Publish multiple products observed on a claimed retailer listing. Every candidate must include its canonical product page URL, name, and a direct HTTP(S) product image URL so recommendations are never published without imagery. THREAD derives canonical identity, retailer, source, and timestamp, then enforces target-domain, mission, department, category, retailer, budget, and CAD rules.',
+    description: 'Publish multiple products observed on a claimed retailer listing. Every candidate must include its canonical product page URL, name, and a direct HTTP(S) product image URL so recommendations are never published without imagery. Rove derives canonical identity, retailer, source, and timestamp, then enforces target-domain, mission, department, category, retailer, budget, and CAD rules.',
     inputSchema: {
       type: 'object',
       properties: {

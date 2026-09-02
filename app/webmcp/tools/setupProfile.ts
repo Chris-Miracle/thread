@@ -59,8 +59,8 @@ export function parseProfileFields(input: Record<string, unknown>) {
 export function setupProfileTool(actions: ThreadActions): WebMCPToolDefinition {
   return {
     name: 'setup_profile',
-    title: 'Set up THREAD profile',
-    description: 'Create the minimal browser-local THREAD profile. Existing data is preserved unless replaceExisting is explicitly true; optional preferences may be learned incrementally later with update_profile.',
+    title: 'Set up Rove profile',
+    description: 'Create the minimal browser-local Rove profile. Existing data is preserved unless replaceExisting is explicitly true; optional preferences may be learned incrementally later with update_profile.',
     inputSchema: {
       type: 'object',
       properties: {

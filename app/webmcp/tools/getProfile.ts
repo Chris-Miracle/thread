@@ -6,7 +6,7 @@ type ThreadActions = ReturnType<typeof createThreadActions>
 export function getProfileTool(actions: ThreadActions): WebMCPToolDefinition {
   return {
     name: 'get_profile',
-    title: 'Get THREAD profile',
+    title: 'Get Rove profile',
     description: 'Read the browser-local shopping profile before starting a mission. Returns saved department, styles, optional self-described identity, measurements, sizes, fit, colours, budget, and retailer preferences.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true },

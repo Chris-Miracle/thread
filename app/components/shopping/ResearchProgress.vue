@@ -27,7 +27,7 @@ const statusLabel: Record<ResearchTargetStatus, string> = {
 </script>
 
 <template>
-  <section class="mb-7 border border-thread-line bg-thread-surface" aria-labelledby="research-title">
+  <section class="rove-glass-card mb-7 overflow-hidden rounded-3xl" aria-labelledby="research-title">
     <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
       <div class="flex min-w-0 items-start gap-3">
         <Search class="mt-0.5 h-4 w-4 shrink-0 text-thread-accent" :stroke-width="1.7" aria-hidden="true" />
@@ -55,12 +55,12 @@ const statusLabel: Record<ResearchTargetStatus, string> = {
         <button
           v-if="session.status === 'active'"
           type="button"
-          class="flex min-h-11 cursor-pointer items-center gap-2 px-3 text-xs font-medium text-thread-danger transition hover:bg-thread-soft"
+          class="flex min-h-11 cursor-pointer items-center gap-2 rounded-full px-3 text-xs font-medium text-thread-danger transition hover:bg-white/55"
           @click="emit('stop')"
         >
           <CircleStop class="h-4 w-4" aria-hidden="true" /> Stop research
         </button>
-        <button type="button" class="flex min-h-11 cursor-pointer items-center gap-2 px-3 text-xs font-medium text-thread-muted transition hover:text-thread-ink" :aria-expanded="open" @click="open = !open">
+        <button type="button" class="flex min-h-11 cursor-pointer items-center gap-2 rounded-full px-3 text-xs font-medium text-thread-muted transition hover:bg-white/55 hover:text-thread-ink" :aria-expanded="open" @click="open = !open">
           {{ open ? 'Hide plan' : 'View plan' }} <ChevronDown class="h-4 w-4 transition" :class="open ? 'rotate-180' : ''" aria-hidden="true" />
         </button>
       </div>
@@ -70,7 +70,7 @@ const statusLabel: Record<ResearchTargetStatus, string> = {
     </div>
     <div v-if="open" class="border-t border-thread-line p-4 sm:p-5">
       <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        <article v-for="target in session.targets" :key="target.id" class="min-w-0 border border-thread-line bg-thread-canvas p-3">
+        <article v-for="target in session.targets" :key="target.id" class="min-w-0 rounded-2xl border border-thread-line bg-white/50 p-3">
           <div class="flex items-start justify-between gap-3">
             <div class="flex min-w-0 items-center gap-2">
               <img :src="target.logo" alt="" width="24" height="24" class="h-6 w-6 rounded border border-thread-line bg-white object-contain p-0.5">
@@ -94,28 +94,29 @@ const statusLabel: Record<ResearchTargetStatus, string> = {
 
 <style scoped>
 .research-status {
-  border: 1px solid rgb(216 210 199);
+  border: 1px solid rgb(217 203 210);
+  border-radius: 999px;
   padding: 0.2rem 0.4rem;
   font-size: 0.625rem;
   line-height: 1rem;
-  color: rgb(111 107 98);
+  color: rgb(107 93 101);
 }
 .research-status[data-status='exploring'],
 .research-status[data-status='claimed'] {
-  border-color: rgb(122 103 79);
-  color: rgb(91 72 49);
+  border-color: rgb(124 63 91 / 0.45);
+  color: rgb(124 63 91);
 }
 .research-status[data-status='complete'] {
   border-color: rgb(21 128 61 / 0.35);
   color: rgb(21 128 61);
 }
 .research-status[data-status='skipped'] {
-  border-color: rgb(111 107 98 / 0.3);
-  color: rgb(111 107 98);
-  background: rgb(244 241 235);
+  border-color: rgb(107 93 101 / 0.3);
+  color: rgb(107 93 101);
+  background: rgb(243 237 240 / 0.7);
 }
 .research-status[data-status='failed'] {
-  border-color: rgb(159 52 45 / 0.4);
-  color: rgb(159 52 45);
+  border-color: rgb(163 56 74 / 0.4);
+  color: rgb(163 56 74);
 }
 </style>

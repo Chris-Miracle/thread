@@ -9,7 +9,7 @@ const emit = defineEmits<{ dismiss: [] }>()
 <template>
   <div class="pointer-events-none fixed inset-x-0 bottom-5 z-[70] flex justify-center px-5" aria-live="polite" aria-atomic="true">
     <Transition name="toast">
-      <div v-if="toast" :key="toast.id" class="pointer-events-auto flex max-w-md items-center gap-3 bg-thread-ink px-4 py-3 text-sm text-white shadow-soft">
+      <div v-if="toast" :key="toast.id" class="pointer-events-auto flex max-w-md items-center gap-3 rounded-full bg-thread-ink px-4 py-3 text-sm text-white shadow-soft">
         <Check class="h-4 w-4 shrink-0" :stroke-width="1.8" aria-hidden="true" />
         <span class="leading-5">{{ toast.message }}</span>
         <button type="button" class="ml-2 flex h-8 w-8 cursor-pointer items-center justify-center text-white/70 transition hover:text-white" aria-label="Dismiss notification" @click="emit('dismiss')">

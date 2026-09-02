@@ -68,7 +68,7 @@ function normalizePrices(input: {
     priceCad = nativePrice
   }
   if (nativeCurrency && nativeCurrency !== 'CAD' && nativePrice !== undefined && priceCad === undefined) {
-    throw new Error('Non-CAD listings require an explicitly verified priceCad; THREAD does not guess exchange rates.')
+    throw new Error('Non-CAD listings require an explicitly verified priceCad; Rove does not guess exchange rates.')
   }
   if (maxPriceCad !== undefined) {
     if (priceCad === undefined) throw new Error('A verified priceCad is required to enforce this search budget.')

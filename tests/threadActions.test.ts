@@ -217,6 +217,52 @@ describe('variant-stable cross-store cart', () => {
     })
     expect(harness.actions.removeFromCart(first.item.id)).toBe(true)
   })
+
+  it('adds fixed-listing fragrance without leaking apparel variants into the cart', () => {
+    const fragrance = {
+      ...uniqlo,
+      id: 'product:fragrance:test',
+      name: 'Cedar Veil EDP 100 ml',
+      category: 'fragrance' as const,
+      colors: ['Amber bottle'],
+      sizes: ['100 ml'],
+    }
+    const harness = makeActions({ fixtures: [fragrance] })
+    const first = harness.actions.addToCart(fragrance.id, { size: 'L', color: 'Black' }, 'agent')
+    const duplicate = harness.actions.addToCart(fragrance.id)
+
+    expect(first).toMatchObject({
+      success: true,
+      duplicate: false,
+      item: { productId: fragrance.id, size: undefined, color: undefined },
+    })
+    expect(duplicate).toMatchObject({ duplicate: true, item: { id: first.item.id } })
+    expect(harness.actions.getCart().itemCount).toBe(1)
+  })
+
+  it('ignores unsupported variant dimensions but still validates real accessory choices', () => {
+    const fixedAccessory = {
+      ...uniqlo,
+      id: 'product:accessory:fixed',
+      name: 'Silver cuff',
+      category: 'accessories' as const,
+      colors: [],
+      sizes: [],
+    }
+    const colourAccessory = {
+      ...fixedAccessory,
+      id: 'product:accessory:colour',
+      name: 'Leather card holder',
+      colors: ['Black', 'Brown'],
+    }
+    const harness = makeActions({ fixtures: [fixedAccessory, colourAccessory] })
+
+    expect(harness.actions.addToCart(fixedAccessory.id, { size: 'XL', color: 'Green' }).item)
+      .toMatchObject({ size: undefined, color: undefined })
+    expect(() => harness.actions.addToCart(colourAccessory.id)).toThrow('Select a colour')
+    expect(() => harness.actions.addToCart(colourAccessory.id, { color: 'Green' })).toThrow('not an available colour')
+    expect(harness.actions.addToCart(colourAccessory.id, { color: 'Black' }).item.color).toBe('Black')
+  })
 })
 
 describe('complete shared human-agent workflow', () => {

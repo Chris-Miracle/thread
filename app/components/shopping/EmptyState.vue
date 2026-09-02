@@ -6,7 +6,7 @@ withDefaults(defineProps<{ title?: string; description?: string }>(), {
 </script>
 
 <template>
-  <div class="border border-thread-line bg-thread-surface px-6 py-16 text-center">
+  <div class="rove-glass-card rounded-[1.75rem] border px-6 py-16 text-center">
     <p class="font-editorial text-3xl">{{ title }}</p>
     <p class="mx-auto mt-3 max-w-md text-sm leading-6 text-thread-muted">{{ description }}</p>
   </div>

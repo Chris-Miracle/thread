@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createThreadToolDefinitions, registerThreadTools, THREAD_TOOL_NAMES, unregisterThreadTools } from '../app/webmcp/registerThreadTools'
+import { PRODUCTS } from '../app/data/products'
 import type { JSONSchemaNode } from '../app/webmcp/types'
 import { makeActions } from './helpers'
 
@@ -78,6 +79,88 @@ describe('WebMCP mission-oriented surface', () => {
       categories: ['tops'],
       retailerIds: ['uniqlo'],
     })
+  })
+
+  it('executes every registered tool through one coherent mission without non-cloneable output', async () => {
+    const harness = makeActions()
+    const tools = new Map(createThreadToolDefinitions(harness.actions).map(tool => [tool.name, tool]))
+    const called: string[] = []
+    const execute = async (name: typeof THREAD_TOOL_NAMES[number], input: Record<string, unknown> = {}) => {
+      const tool = tools.get(name)
+      expect(tool, `Missing tool ${name}`).toBeDefined()
+      called.push(name)
+      const result = await tool!.execute(input)
+      expect(() => structuredClone(result)).not.toThrow()
+      return result as Record<string, any>
+    }
+
+    const shirt = PRODUCTS.find(product => product.retailerId === 'uniqlo' && product.shoppingDepartment === 'women')!
+    await execute('get_profile')
+    await execute('setup_profile', { name: 'Chris', shoppingDepartment: 'women' })
+    await execute('update_profile', { name: 'Chris' })
+    const started = await execute('start_shopping_search', {
+      rawPrompt: 'Find one smart-casual shirt under $70 CAD',
+      shoppingDepartment: 'women',
+      needs: [{ intent: 'smart-casual shirt', queries: ['smart casual shirt'], categories: ['tops'], required: true, quantity: 1, budgetCad: 70 }],
+      constraints: { maxPriceCad: 70, overallBudgetCad: 70, categories: ['tops'], retailerIds: ['uniqlo'] },
+    })
+    const searchId = started.searchId as string
+    const claimed = await execute('claim_search_targets', { searchId, limit: 1, workerId: 'webmcp-contract' })
+    const targetId = claimed.targets[0].id as string
+    const published = await execute('publish_candidates', {
+      searchId,
+      targetId,
+      candidates: [{
+        url: shirt.url,
+        name: shirt.name,
+        brand: shirt.brand,
+        nativePrice: shirt.nativePrice,
+        nativeCurrency: shirt.nativeCurrency,
+        priceCad: shirt.priceCad,
+        image: shirt.image,
+        category: shirt.category,
+        shoppingDepartment: shirt.shoppingDepartment,
+      }],
+    })
+    const productId = published.accepted[0].id as string
+    await execute('enrich_product', {
+      searchId,
+      productId,
+      colors: shirt.colors,
+      sizes: shirt.sizes,
+      availability: 'in-stock',
+      description: shirt.description,
+    })
+    await execute('complete_search_target', { searchId, targetId, status: 'complete', note: 'Contract test verified the product page.' })
+    await execute('get_search_status', { searchId })
+    await execute('get_products', { searchId, limit: 100 })
+    await execute('review_recommendations', { searchId, decision: 'accept-all' })
+    await execute('get_research_history')
+    const added = await execute('add_to_cart', { productId, size: shirt.sizes[0], color: shirt.colors[0] })
+    await execute('get_cart')
+    await execute('remove_from_cart', { itemId: added.itemId })
+    const replacement = await execute('research_again', { searchId })
+    await execute('cancel_search', { searchId: replacement.replacement.searchId, reason: 'Contract test complete.' })
+
+    expect(new Set(called)).toEqual(new Set(THREAD_TOOL_NAMES))
+  })
+
+  it('normalizes irrelevant fragrance variants at the WebMCP cart boundary', async () => {
+    const base = PRODUCTS.find(product => product.retailerId === 'uniqlo')!
+    const fragrance = {
+      ...base,
+      id: 'product:webmcp:fragrance',
+      name: 'Cedar Veil Eau de Parfum 100 ml',
+      category: 'fragrance' as const,
+      colors: ['Amber bottle'],
+      sizes: ['100 ml'],
+    }
+    const harness = makeActions({ fixtures: [fragrance] })
+    const add = createThreadToolDefinitions(harness.actions).find(tool => tool.name === 'add_to_cart')!
+    const result = await add.execute({ productId: fragrance.id, size: 'XL', color: 'Green' }) as Record<string, unknown>
+
+    expect(result).toMatchObject({ success: true, duplicate: false, selectedSize: undefined, selectedColor: undefined, cartCount: 1 })
+    expect(() => structuredClone(result)).not.toThrow()
   })
 
   it('feature-detects, avoids duplicate registration, and tears down through AbortController', async () => {

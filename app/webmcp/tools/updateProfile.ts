@@ -8,7 +8,7 @@ type ThreadActions = ReturnType<typeof createThreadActions>
 export function updateProfileTool(actions: ThreadActions): WebMCPToolDefinition {
   return {
     name: 'update_profile',
-    title: 'Update THREAD profile',
+    title: 'Update Rove profile',
     description: 'Incrementally update saved browser-local shopping preferences without replacing omitted fields. Use only preferences the user supplied or approved.',
     inputSchema: {
       type: 'object',

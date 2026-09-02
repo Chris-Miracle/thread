@@ -5,12 +5,15 @@
 :root {
   color-scheme: light;
   font-synthesis: none;
+  --rove-glass: rgba(255, 255, 255, 0.58);
+  --rove-glass-strong: rgba(251, 248, 250, 0.84);
+  --rove-glass-border: rgba(56, 35, 46, 0.14);
 }
 
 html {
   min-width: 320px;
-  background: #f5f1e9;
-  color: #1d1c19;
+  background: #f3edf0;
+  color: #251920;
   scroll-behavior: smooth;
 }
 
@@ -20,8 +23,11 @@ body {
   margin: 0;
   overflow-x: hidden;
   background:
-    radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.72), transparent 28rem),
-    #f5f1e9;
+    radial-gradient(circle at 10% -5%, rgba(255, 255, 255, 0.92), transparent 34rem),
+    radial-gradient(circle at 92% 8%, rgba(163, 98, 126, 0.17), transparent 32rem),
+    radial-gradient(circle at 54% 105%, rgba(105, 73, 91, 0.10), transparent 38rem),
+    #f3edf0;
+  background-attachment: fixed;
   font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -39,13 +45,13 @@ select {
 }
 
 :focus-visible {
-  outline: 2px solid #1d1c19;
+  outline: 2px solid #7c3f5b;
   outline-offset: 3px;
 }
 
 ::selection {
-  background: #d8cab8;
-  color: #1d1c19;
+  background: #d9bdc9;
+  color: #251920;
 }
 
 .text-balance {
@@ -53,8 +59,39 @@ select {
 }
 
 .thread-scrollbar {
-  scrollbar-color: #b9b0a2 transparent;
+  scrollbar-color: #b8a5ae transparent;
   scrollbar-width: thin;
+}
+
+.rove-glass {
+  border-color: var(--rove-glass-border);
+  background: var(--rove-glass);
+  box-shadow: 0 18px 54px rgba(58, 35, 47, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  -webkit-backdrop-filter: saturate(165%) blur(22px);
+  backdrop-filter: saturate(165%) blur(22px);
+}
+
+.rove-glass-strong {
+  border-color: var(--rove-glass-border);
+  background: var(--rove-glass-strong);
+  box-shadow: 0 24px 70px rgba(58, 35, 47, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  -webkit-backdrop-filter: saturate(170%) blur(28px);
+  backdrop-filter: saturate(170%) blur(28px);
+}
+
+.rove-glass-card {
+  border: 1px solid var(--rove-glass-border);
+  border-color: var(--rove-glass-border);
+  background: rgba(251, 248, 250, 0.76);
+  box-shadow: 0 14px 42px rgba(58, 35, 47, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: saturate(145%) blur(14px);
+  backdrop-filter: saturate(145%) blur(14px);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .rove-glass,
+  .rove-glass-strong,
+  .rove-glass-card { background: #fbf8fa; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -63,5 +100,11 @@ select {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .rove-glass,
+  .rove-glass-strong,
+  .rove-glass-card {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
