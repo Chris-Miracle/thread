@@ -18,7 +18,7 @@ WebMCP is the product boundary, not a decorative integration:
 - candidate URLs, images, budgets, retailer domains, mission identity, variants, and duplicate history are validated before entering shared state;
 - the application remains a complete, usable static fashion workspace when WebMCP is unavailable.
 
-No sign-in, API key, or test credentials are required. Open the [live app](https://mythread.netlify.app/) in ChatGPT's in-app browser or a WebMCP-enabled Chrome build.
+No sign-in, API key, or test credentials are required. Open the [live app](https://mythread.netlify.app/) in ChatGPT's in-app browser, or in Google Chrome 149 or later after enabling `chrome://flags/#enable-webmcp-testing` and restarting Chrome.
 
 ## Challenge-period provenance
 
