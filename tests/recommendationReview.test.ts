@@ -121,11 +121,13 @@ describe('timed recommendation review and fresh reruns', () => {
     second.actions.hydrate()
     expect(second.actions.getProducts({ searchId: replacement.replacement.searchId }).products.map(product => product.id))
       .toEqual([published.accepted[1]!.id])
-    expect(second.actions.getSearchStatus(replacement.replacement.searchId).collection).toMatchObject({
+    const replacementStatus = second.actions.getSearchStatus(replacement.replacement.searchId)
+    expect(replacementStatus.collection).toMatchObject({
       rootSearchId: started.searchId,
       preservedProductIds: [published.accepted[1]!.id],
       replacingProductIds: [published.accepted[0]!.id],
     })
+    expect(() => structuredClone(replacementStatus)).not.toThrow()
   })
 
   it('keeps accepted products visible through selective replacement and saves one merged collection', () => {

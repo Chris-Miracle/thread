@@ -823,7 +823,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
         rootPrompt: getSessionRootPrompt(session),
         productIds: collectionProducts.map(product => product.id),
         preservedProductIds: session.replacementContext?.preservedProducts.map(product => product.id) ?? [],
-        replacingProductIds: session.replacementContext?.replacedProductIds ?? [],
+        replacingProductIds: [...(session.replacementContext?.replacedProductIds ?? [])],
       },
       nextAction: session.status !== 'active'
         ? reviewNextAction(session)
