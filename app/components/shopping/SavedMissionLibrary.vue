@@ -18,11 +18,15 @@ const acceptedLabel = computed(() => selectedEntry.value
   ? new Date(selectedEntry.value.acceptedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
   : '')
 
+watch(() => props.entries[0]?.searchId, (latestSearchId) => {
+  selectedSearchId.value = latestSearchId ?? ''
+}, { immediate: true })
+
 watch(() => props.entries.map(entry => entry.searchId).join('|'), () => {
   if (!props.entries.some(entry => entry.searchId === selectedSearchId.value)) {
     selectedSearchId.value = props.entries[0]?.searchId ?? ''
   }
-}, { immediate: true })
+})
 
 watch(selectedSearchId, () => { filters.value = emptyResultFilters() })
 </script>
