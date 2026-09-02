@@ -2,6 +2,28 @@
 
 > A shared fashion research workspace for people and browser agents.
 
+[Live app](https://mythread.netlify.app/) · [Public source](https://github.com/Chris-Miracle/thread) · [MIT license](./LICENSE) · [WebMCP Challenge](https://webmcp.devpost.com/)
+
+## Submission overview
+
+Shopping research breaks down across tabs, retailer sites, chat transcripts, and carts. A browser agent can discover useful products, but the human usually cannot see, refine, preserve, or selectively replace those findings in a durable shared interface.
+
+Rove makes that collaboration visible. The agent researches live retailer pages and progressively publishes grounded candidates into the same workspace the human is using. The human can inspect provenance, filter the edit, choose variants, accept or replace individual recommendations, save completed missions, and manage a cross-store Thread without losing the research state.
+
+WebMCP is the product boundary, not a decorative integration:
+
+- seventeen imperative `document.modelContext` tools expose profile, mission planning, retailer scheduling, candidate publication, enrichment, review, fresh research, history, and cart actions;
+- every human and agent mutation passes through the same typed domain action layer;
+- browser agents receive constrained retailer targets and structured next actions instead of relying on one oversized prompt;
+- candidate URLs, images, budgets, retailer domains, mission identity, variants, and duplicate history are validated before entering shared state;
+- the application remains a complete, usable static fashion workspace when WebMCP is unavailable.
+
+No sign-in, API key, or test credentials are required. Open the [live app](https://mythread.netlify.app/) in ChatGPT's in-app browser or a WebMCP-enabled Chrome build.
+
+## Challenge-period provenance
+
+This repository was initialized on August 27, 2026, after the challenge submission period opened on August 25. The initial commit contained only the MIT license and a two-line README; the Rove application and its WebMCP implementation were built in subsequent commits from August 30 through September 2. The dated [public commit history](https://github.com/Chris-Miracle/thread/commits/main/) provides the implementation record. Rove is not a pre-existing application being submitted on the strength of earlier work.
+
 Rove’s product thesis is:
 
 > “Rove is a shared fashion research workspace where a browser agent researches the open web and progressively publishes products into the same workspace that the human is simultaneously browsing, filtering, inspecting, and curating.”
@@ -268,3 +290,7 @@ app/
 └── webmcp/                  closed schemas, outputs, registration, tools
 tests/                       deterministic unit/integration tests
 ```
+
+## License
+
+Rove is open source under the [MIT License](./LICENSE).
