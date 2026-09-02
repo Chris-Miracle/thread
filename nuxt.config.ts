@@ -16,11 +16,11 @@ export default defineNuxtConfig({
         { property: 'og:title', content: 'Rove — Style, found well' },
         { property: 'og:description', content: 'People and browser agents research real retailers together, refine considered edits, and preserve every useful find.' },
         { property: 'og:type', content: 'website' },
-        { property: 'og:url', content: 'https://mythread.netlify.app/' },
+        { property: 'og:url', content: 'https://myrove.netlify.app/' },
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/rove-mark.svg' },
-        { rel: 'canonical', href: 'https://mythread.netlify.app/' },
+        { rel: 'canonical', href: 'https://myrove.netlify.app/' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap' },
