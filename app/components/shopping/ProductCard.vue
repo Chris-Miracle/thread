@@ -14,7 +14,7 @@ const observedLabel = computed(() => new Date(props.product.observedAt).toLocale
 </script>
 
 <template>
-  <article class="rove-glass-card group mb-3 inline-block w-full min-w-0 break-inside-avoid overflow-hidden rounded-[1.4rem] border align-top sm:mb-4">
+  <article class="rove-glass-card group flex h-full w-full min-w-0 flex-col overflow-hidden rounded-[1.4rem] border">
     <div class="relative overflow-hidden bg-thread-soft">
       <button type="button" class="block w-full cursor-pointer" :aria-label="`Inspect ${product.name}`" @click="emit('select')">
         <ProductImage
@@ -22,8 +22,8 @@ const observedLabel = computed(() => new Date(props.product.observedAt).toLocale
           :alt="`${product.name}${product.brand ? ` by ${product.brand}` : ''}`"
           :width="product.imageWidth ?? 720"
           :height="product.imageHeight ?? 900"
-          class="h-auto w-full object-cover transition duration-300 ease-out group-hover:scale-[1.015]"
-          fallback-class="flex aspect-[4/3] w-full items-center justify-center bg-thread-soft text-thread-muted"
+          class="aspect-[4/5] w-full object-cover transition duration-300 ease-out group-hover:scale-[1.015]"
+          fallback-class="flex aspect-[4/5] w-full items-center justify-center bg-thread-soft text-thread-muted"
           :fallback-label="`Product preview unavailable for ${product.name}`"
         />
       </button>
@@ -37,7 +37,7 @@ const observedLabel = computed(() => new Date(props.product.observedAt).toLocale
       </button>
     </div>
 
-    <button type="button" class="block w-full cursor-pointer px-3 pb-2.5 pt-3 text-left" @click="emit('select')">
+    <button type="button" class="block w-full flex-1 cursor-pointer px-3 pb-2.5 pt-3 text-left" @click="emit('select')">
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
           <p class="truncate text-[10px] font-medium uppercase tracking-[0.14em] text-thread-muted">{{ product.brand || product.retailer }}</p>

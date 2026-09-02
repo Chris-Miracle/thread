@@ -113,7 +113,7 @@ Profiles expose exactly 15 curated styles derived from Copnow’s broader taxono
 
 ## Discovery interface and commerce boundary
 
-Products render in a lightweight CSS-column masonry feed: roughly two columns on mobile, three to four on tablet, and five to six on wide desktop screens. Image proportions remain useful, new candidates enter progressively, and existing filters and scroll position are not reset by publication.
+Products render in an aligned responsive grid: two columns on mobile, three to four on tablet, and five to six on wide desktop screens. Consistent image proportions keep sparse and full edits visually balanced, new candidates enter progressively, and existing filters and scroll position are not reset by publication.
 
 The human can filter by retailer, brand, category, and verified CAD price; sort by recommendation, price, or observation time; inspect candidate provenance; open the canonical product page; and add enriched variants to the cart.
 
@@ -251,7 +251,7 @@ Also verify the simpler request `Find me a black shirt under $70 CAD`; Rove shou
 
 ```text
 app/
-├── components/              human workspace, masonry feed, progress, cart, debug
+├── components/              human workspace, product grid, progress, cart, debug
 ├── composables/             canonical browser-local state access
 ├── data/
 │   ├── products.ts          development/test fixtures only
