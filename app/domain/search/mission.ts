@@ -33,7 +33,7 @@ const OCCASION_TERMS: Record<Occasion, string[]> = {
   formal: ['formal', 'wedding', 'gala'],
   travel: ['travel', 'flight', 'airport', 'trip'],
   training: ['training', 'gym', 'workout', 'running'],
-  vacation: ['vacation', 'holiday', 'getaway'],
+  vacation: ['vacation', 'getaway', 'holiday trip', 'on holiday'],
   beach: ['beach', 'pool'],
   resort: ['resort'],
 }
@@ -153,7 +153,8 @@ export function createSearchMission(
   const explicitCategories = [...new Set(input.constraints?.categories ?? (input.needs?.length ? [] : inferCategories(rawPrompt)))]
   if (!explicitCategories.every(category => categoryIds.has(category))) throw new Error('Mission contains an unsupported category constraint.')
   const inferredOccasions = inferOccasions(rawPrompt)
-  const isVacation = inferredOccasions.includes('vacation') || /\bvacation\b|\bholiday\b|\bgetaway\b/i.test(rawPrompt)
+  const isVacation = inferredOccasions.includes('vacation')
+    || /\bvacation\b|\bgetaway\b|\bholiday\s+(?:trip|travel|getaway)\b|\b(?:on|for a)\s+holiday\b/i.test(rawPrompt)
   const suppliedOccasions = [...new Set(input.context?.occasions ?? inferredOccasions)]
   if (!suppliedOccasions.every(occasion => occasionIds.has(occasion))) throw new Error('Mission contains an unsupported occasion.')
 

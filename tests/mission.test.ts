@@ -37,6 +37,20 @@ describe('SearchMission', () => {
     expect(mission.derivedQueries).toEqual(['linen co-ord', 'breathable shirt', 'resort dinner dress'])
   })
 
+  it('does not misclassify holiday dinner shopping as a vacation', () => {
+    const mission = createSearchMission({
+      rawPrompt: 'Find a warm fragrance and card holder for holiday dinners.',
+      context: { occasions: ['dinner', 'formal'] },
+      needs: [
+        { intent: 'evening fragrance', queries: ['warm woody fragrance'], categories: ['fragrance'] },
+        { intent: 'card holder', queries: ['minimal leather card holder'], categories: ['accessories'] },
+      ],
+    }, DEFAULT_PROFILE)
+
+    expect(mission.context.tripType).toBeUndefined()
+    expect(mission.context.occasions).toEqual(['dinner', 'formal'])
+  })
+
   it('preserves requested quantities, per-need budgets, fragrance, and the overall total', () => {
     const mission = createSearchMission({
       rawPrompt: 'Three clothes for CAD 120 and one perfume for CAD 50, total CAD 170.',
