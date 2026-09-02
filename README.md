@@ -51,7 +51,7 @@ flowchart LR
   Cart <--> Storage
 ```
 
-Human and WebMCP operations converge on `app/domain/threadActions.ts`; the UI does not maintain a parallel implementation. A human can keep filtering, browsing, opening details, and managing the cart while the browser agent claims retailer work and progressively publishes products.
+Human and WebMCP operations converge on one canonical domain action layer; the UI does not maintain a parallel implementation. A human can keep filtering, browsing, opening details, and managing the cart while the browser agent claims retailer work and progressively publishes products.
 
 Rove supports one workspace tab plus browser-agent-controlled retailer tabs. Cross-tab Rove state synchronization is intentionally not claimed. Search IDs and target claims prevent old retailer workers from publishing into a replacement, cancelled, or completed mission.
 
@@ -118,20 +118,6 @@ Pricing keeps `nativePrice`, `nativeCurrency`, and `priceCad` separate. CAD list
 The active session retains up to 600 unique candidates. When the documented limit is reached, new unique candidates are explicitly rejected; existing data is never silently truncated. Rove refuses to replace an active mission; it must first be completed, satisfied, cancelled, or explicitly abandoned. Up to three terminal sessions are retained as read-only recent searches, while cart snapshots remain stable.
 
 Recommended order is deterministic rather than arrival order. It combines mission/query/category relevance, profile style match, occasion match, budget fit, retailer relevance, availability, freshness, and completeness. A greedy diversity pass then applies retailer repetition and near-duplicate penalties plus category-coverage bonuses.
-
-## Browser-local persistence and trace
-
-The current versioned keys retain their original `thread.*` namespace so the Rove rebrand never discards existing browser-local data:
-
-- `thread.profile.v4`;
-- `thread.search.v4`;
-- `thread.cart.v3`.
-
-Legacy v1/v3 profile, v3 search, and v1 cart snapshots are migrated when possible. The persisted `SearchSession` includes its mission, targets, products, proposed fulfillment plan, rankings, counts, revision, and the latest 250 trace events. Refreshing the workspace preserves the search ID, queue states, candidates, and progress.
-
-Trace events include search creation, target ranking and claims, candidate receipt/acceptance/rejection, target completion/failure, enrichment, satisfaction, completion, and cancellation. Open `?debug=true` in development to inspect the exact state and trace, refresh registered tools, or run a fixture-backed end-to-end simulation. The small catalog in `app/data/products.ts` is used only by tests and that debug simulator; it is not exposed as normal shopping discovery.
-
-Profiles expose exactly 15 curated styles derived from Copnow’s broader taxonomy while preserving Rove’s existing IDs. The human selector requires 3–10 choices. Identity and body details are optional, self-described, browser-local, and never used to infer skin tone.
 
 ## Discovery interface and commerce boundary
 
@@ -283,8 +269,7 @@ app/
 │   ├── profile/             schema validation and migration
 │   ├── research/            target scheduler, coverage, telemetry
 │   ├── search/              SearchMission construction and validation
-│   ├── persistence.ts       versioned hydration/migration
-│   └── threadActions.ts     shared human + WebMCP action boundary
+│   └── persistence.ts       versioned hydration/migration
 ├── plugins/                 state hydration and client-only WebMCP registration
 ├── types/                   strict domain contracts
 └── webmcp/                  closed schemas, outputs, registration, tools
