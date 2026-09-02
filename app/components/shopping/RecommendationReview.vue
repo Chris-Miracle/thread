@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Check, RefreshCw, TimerReset } from 'lucide-vue-next'
+import { getSessionCollectionProducts } from '~/domain/research/collection'
 import type { Product, SearchSession } from '~/types/thread'
 
 const props = defineProps<{ session: SearchSession }>()
@@ -19,7 +20,7 @@ let timer: ReturnType<typeof setInterval> | undefined
 const review = computed(() => props.session.recommendationReview)
 const products = computed<Product[]>(() => {
   const ids = new Set(review.value?.productIds ?? [])
-  return props.session.products.filter(product => ids.has(product.id))
+  return getSessionCollectionProducts(props.session).filter(product => ids.has(product.id))
 })
 const remainingSeconds = computed(() => review.value?.status === 'pending'
   ? Math.max(0, Math.ceil((Date.parse(review.value.deadlineAt) - now.value) / 1_000))
