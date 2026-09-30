@@ -17,6 +17,12 @@ export default defineNuxtConfig({
         { property: 'og:description', content: 'People and browser agents research real retailers together, refine considered edits, and preserve every useful find.' },
         { property: 'og:type', content: 'website' },
         { property: 'og:url', content: 'https://myrove.netlify.app/' },
+        { property: 'og:image', content: 'https://rove.chrisforyou.chatgpt.site/screenshot.jpeg' },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { property: 'og:image:alt', content: 'Rove — Your wardrobe for the web.' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:image', content: 'https://rove.chrisforyou.chatgpt.site/screenshot.jpeg' },
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/rove-mark.svg' },
