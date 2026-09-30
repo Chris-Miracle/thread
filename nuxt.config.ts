@@ -21,6 +21,7 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/rove-mark.svg' },
         { rel: 'canonical', href: 'https://myrove.netlify.app/' },
+        { rel: 'alternate', href: 'https://rove.chrisforyou.chatgpt.site/', title: 'Rove on Sites' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap' },

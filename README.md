@@ -2,7 +2,7 @@
 
 > A shared fashion research workspace for people and browser agents.
 
-[Live app](https://myrove.netlify.app/) · [Public source](https://github.com/Chris-Miracle/thread) · [MIT license](./LICENSE) · [WebMCP Challenge](https://webmcp.devpost.com/)
+[Live app](https://myrove.netlify.app/) · [Private Sites deployment](https://rove.chrisforyou.chatgpt.site/) · [Public source](https://github.com/Chris-Miracle/thread) · [MIT license](./LICENSE) · [WebMCP Challenge](https://webmcp.devpost.com/)
 
 ## Submission overview
 
