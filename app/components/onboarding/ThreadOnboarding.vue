@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, X } from 'lucide-vue-next'
+import { ChevronDown, X } from 'lucide-vue-next'
 import type { ProfileInput } from '~/domain/profile/profile'
 import { MIN_PROFILE_STYLES, SHOPPING_DEPARTMENTS, type ShoppingDepartment, type StyleId, type StyleProfile } from '~/types/thread'
 
@@ -21,6 +21,8 @@ const heightCm = ref(props.profile?.heightCm?.toString() ?? '')
 const weightKg = ref(props.profile?.weightKg?.toString() ?? '')
 const topSize = ref(props.profile?.clothingSizes?.tops ?? '')
 const bottomSize = ref(props.profile?.clothingSizes?.bottoms ?? '')
+const country = ref(props.profile?.destination?.country ?? '')
+const region = ref(props.profile?.destination?.region ?? '')
 const error = ref('')
 const nameInput = ref<HTMLInputElement | null>(null)
 
@@ -51,6 +53,11 @@ function submit() {
     error.value = 'Enter a weight between 20 and 400 kg.'
     return
   }
+  const countryCode = country.value.trim().toUpperCase()
+  if (countryCode && !/^[A-Z]{2}$/.test(countryCode)) {
+    error.value = 'Enter a two-letter delivery country code, such as CA.'
+    return
+  }
   emit('save', {
     name: name.value.trim(),
     shoppingDepartment: shoppingDepartment.value,
@@ -63,38 +70,36 @@ function submit() {
       tops: topSize.value.trim() || undefined,
       bottoms: bottomSize.value.trim() || undefined,
     },
+    destination: countryCode ? { country: countryCode, region: region.value.trim() || undefined } : null,
   })
 }
 </script>
-
 <template>
-  <section class="relative flex min-h-dvh items-center bg-transparent px-5 py-12 sm:px-8" :aria-label="editing ? 'Edit style profile' : 'Create your Rove profile'">
-    <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-thread-line" />
+  <section class="relative min-h-dvh bg-thread-canvas px-4 pb-16 pt-14 sm:px-6 sm:pt-20" :aria-label="editing ? 'Edit style profile' : 'Create your Rove profile'">
     <button
       v-if="editing"
       type="button"
-      class="rove-glass absolute right-5 top-5 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border transition hover:border-thread-ink sm:right-8 sm:top-8"
+      class="rove-icon-btn absolute right-4 top-4 bg-thread-fill sm:right-6 sm:top-6"
       aria-label="Close profile settings"
       @click="emit('cancel')"
     >
-      <X class="h-5 w-5" aria-hidden="true" />
+      <X class="h-[18px] w-[18px]" :stroke-width="2" aria-hidden="true" />
     </button>
 
-    <div class="rove-glass-strong mx-auto w-full max-w-3xl rounded-[2rem] border p-6 sm:p-10 lg:p-12">
-      <RoveLogo class="mb-12" />
-      <div class="mb-10 max-w-2xl">
-        <p class="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-thread-accent">{{ editing ? 'Your profile' : 'Welcome to Rove' }}</p>
-        <h1 class="font-editorial text-5xl leading-[0.95] tracking-[-0.025em] text-thread-ink sm:text-7xl">
-          {{ editing ? 'Refine your point of view.' : 'Your wardrobe for the web.' }}
+    <div class="mx-auto w-full max-w-[640px]">
+      <div class="text-center">
+        <RoveLogo mark-only class="justify-center [&>svg]:h-14 [&>svg]:w-14 [&>svg]:shadow-raised [&>svg]:rounded-[15px]" />
+        <h1 class="rove-headline mt-7 text-balance text-[36px] leading-[1.08] sm:text-[48px]">
+          {{ editing ? 'Your style profile' : 'Your wardrobe for the web.' }}
         </h1>
-        <p class="mt-5 max-w-lg text-base leading-7 text-thread-muted">
-          {{ editing ? 'Update what Rove uses to shape your recommendations.' : 'Give Rove a starting point for your personal style.' }}
+        <p class="mx-auto mt-3 max-w-md text-pretty text-[17px] leading-[1.5] text-thread-muted">
+          {{ editing ? 'Rove uses this to shape every edit.' : 'Tell Rove a little about your style. It takes a minute.' }}
         </p>
       </div>
 
-      <form class="space-y-8" novalidate @submit.prevent="submit">
-        <div>
-          <label for="thread-name" class="mb-3 block text-sm font-medium text-thread-ink">What's your name?</label>
+      <form class="mt-10 space-y-4" novalidate @submit.prevent="submit">
+        <div class="rove-card p-5 sm:p-6">
+          <label for="thread-name" class="block text-[15px] font-semibold">Name</label>
           <input
             id="thread-name"
             ref="nameInput"
@@ -102,72 +107,88 @@ function submit() {
             type="text"
             autocomplete="given-name"
             maxlength="40"
-            class="h-14 w-full rounded-xl border border-thread-line bg-white/70 px-4 text-base text-thread-ink placeholder:text-thread-muted/65 transition hover:border-thread-accent focus:border-thread-ink focus:outline-none"
+            class="rove-input mt-3"
             placeholder="First name"
             :aria-invalid="Boolean(error && !name.trim())"
           >
         </div>
 
-        <fieldset>
-          <legend class="mb-3 text-sm font-medium text-thread-ink">Who are you shopping for?</legend>
-          <p class="mb-4 text-xs leading-5 text-thread-muted">This helps Rove choose the right departments. You can still search every store.</p>
-          <div class="grid gap-3 sm:grid-cols-3">
+        <fieldset class="rove-card p-5 sm:p-6">
+          <legend class="sr-only">Who are you shopping for?</legend>
+          <p class="text-[15px] font-semibold" aria-hidden="true">Shopping for</p>
+          <p class="mt-0.5 text-[13px] text-thread-muted">Sets which departments Rove checks first.</p>
+          <div class="mt-4 grid grid-cols-3 gap-1 rounded-xl bg-thread-canvas p-1 shadow-inset-hairline">
             <button
               v-for="option in SHOPPING_DEPARTMENTS"
               :key="option.id"
               type="button"
-              class="min-h-[76px] cursor-pointer rounded-2xl border px-4 py-3 text-left transition"
-              :class="shoppingDepartment === option.id ? 'border-thread-ink bg-thread-ink text-white' : 'border-thread-line bg-thread-surface hover:border-thread-ink'"
+              class="h-10 cursor-pointer rounded-[9px] text-[14px] font-medium transition duration-200"
+              :class="shoppingDepartment === option.id ? 'bg-thread-elevated text-thread-ink shadow-raised' : 'text-thread-muted hover:text-thread-ink'"
               :aria-pressed="shoppingDepartment === option.id"
+              :title="option.description"
               @click="shoppingDepartment = option.id"
             >
-              <span class="block text-sm font-medium">{{ option.label }}</span>
-              <span class="mt-1 block text-xs leading-5" :class="shoppingDepartment === option.id ? 'text-white/65' : 'text-thread-muted'">{{ option.description }}</span>
+              {{ option.label }}
             </button>
           </div>
         </fieldset>
 
-        <StyleSelector v-model="styles" />
+        <div class="rove-card p-5 sm:p-6">
+          <StyleSelector v-model="styles" />
+        </div>
 
-        <details class="overflow-hidden rounded-2xl border border-thread-line bg-white/55">
-          <summary class="cursor-pointer px-4 py-4 text-sm font-medium text-thread-ink">Fit and identity details <span class="ml-2 text-xs font-normal text-thread-muted">Optional</span></summary>
-          <div class="grid gap-5 border-t border-thread-line p-4 sm:grid-cols-2">
+        <details class="rove-card group overflow-hidden">
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5 sm:px-6 [&::-webkit-details-marker]:hidden">
+            <span>
+              <span class="block text-[15px] font-semibold">Fit and identity</span>
+              <span class="block text-[13px] text-thread-muted">Optional · helps with sizing</span>
+            </span>
+            <ChevronDown class="h-5 w-5 text-thread-muted transition duration-300 group-open:rotate-180" :stroke-width="2" aria-hidden="true" />
+          </summary>
+          <div class="grid gap-4 border-t border-thread-line p-5 sm:grid-cols-2 sm:px-6">
             <div>
-              <label for="thread-gender-identity" class="mb-2 block text-xs font-medium text-thread-ink">Gender identity</label>
-              <input id="thread-gender-identity" v-model="genderIdentity" type="text" autocomplete="sex" maxlength="80" class="h-12 w-full rounded-xl border border-thread-line bg-white/65 px-3 text-sm focus:border-thread-ink focus:outline-none" placeholder="e.g. man">
+              <label for="thread-gender-identity" class="mb-1.5 block text-[13px] font-medium">Gender identity</label>
+              <input id="thread-gender-identity" v-model="genderIdentity" type="text" autocomplete="sex" maxlength="80" class="rove-input h-11" placeholder="e.g. man">
             </div>
             <div>
-              <label for="thread-racial-identity" class="mb-2 block text-xs font-medium text-thread-ink">Racial or cultural identity</label>
-              <input id="thread-racial-identity" v-model="racialIdentity" type="text" maxlength="80" class="h-12 w-full rounded-xl border border-thread-line bg-white/65 px-3 text-sm focus:border-thread-ink focus:outline-none" placeholder="Optional, self-described">
+              <label for="thread-racial-identity" class="mb-1.5 block text-[13px] font-medium">Racial or cultural identity</label>
+              <input id="thread-racial-identity" v-model="racialIdentity" type="text" maxlength="80" class="rove-input h-11" placeholder="Self-described">
             </div>
             <div>
-              <label for="thread-height" class="mb-2 block text-xs font-medium text-thread-ink">Height (cm)</label>
-              <input id="thread-height" v-model="heightCm" type="number" inputmode="decimal" min="80" max="250" step="0.01" class="h-12 w-full rounded-xl border border-thread-line bg-white/65 px-3 text-sm tabular-nums focus:border-thread-ink focus:outline-none" placeholder="180">
+              <label for="thread-height" class="mb-1.5 block text-[13px] font-medium">Height (cm)</label>
+              <input id="thread-height" v-model="heightCm" type="number" inputmode="decimal" min="80" max="250" step="0.01" class="rove-input h-11 tabular-nums" placeholder="180">
             </div>
             <div>
-              <label for="thread-weight" class="mb-2 block text-xs font-medium text-thread-ink">Weight (kg)</label>
-              <input id="thread-weight" v-model="weightKg" type="number" inputmode="decimal" min="20" max="400" step="0.1" class="h-12 w-full rounded-xl border border-thread-line bg-white/65 px-3 text-sm tabular-nums focus:border-thread-ink focus:outline-none" placeholder="81">
+              <label for="thread-weight" class="mb-1.5 block text-[13px] font-medium">Weight (kg)</label>
+              <input id="thread-weight" v-model="weightKg" type="number" inputmode="decimal" min="20" max="400" step="0.1" class="rove-input h-11 tabular-nums" placeholder="81">
             </div>
             <div>
-              <label for="thread-top-size" class="mb-2 block text-xs font-medium text-thread-ink">Usual top size</label>
-              <input id="thread-top-size" v-model="topSize" type="text" maxlength="20" class="h-12 w-full rounded-xl border border-thread-line bg-white/65 px-3 text-sm uppercase focus:border-thread-ink focus:outline-none" placeholder="L">
+              <label for="thread-top-size" class="mb-1.5 block text-[13px] font-medium">Top size</label>
+              <input id="thread-top-size" v-model="topSize" type="text" maxlength="20" class="rove-input h-11 uppercase" placeholder="L">
             </div>
             <div>
-              <label for="thread-bottom-size" class="mb-2 block text-xs font-medium text-thread-ink">Usual bottom size</label>
-              <input id="thread-bottom-size" v-model="bottomSize" type="text" maxlength="20" class="h-12 w-full rounded-xl border border-thread-line bg-white/65 px-3 text-sm uppercase focus:border-thread-ink focus:outline-none" placeholder="XL">
+              <label for="thread-bottom-size" class="mb-1.5 block text-[13px] font-medium">Bottom size</label>
+              <input id="thread-bottom-size" v-model="bottomSize" type="text" maxlength="20" class="rove-input h-11 uppercase" placeholder="XL">
             </div>
-            <p class="sm:col-span-2 text-xs leading-5 text-thread-muted">These details stay in this browser. Rove preserves self-described identity but does not infer skin tone from racial identity.</p>
+            <div>
+              <label for="thread-country" class="mb-1.5 block text-[13px] font-medium">Delivery country</label>
+              <input id="thread-country" v-model="country" type="text" autocomplete="country" maxlength="2" class="rove-input h-11 uppercase" placeholder="CA">
+            </div>
+            <div>
+              <label for="thread-region" class="mb-1.5 block text-[13px] font-medium">Province or state</label>
+              <input id="thread-region" v-model="region" type="text" autocomplete="address-level1" maxlength="40" class="rove-input h-11 uppercase" placeholder="ON">
+            </div>
+            <p class="text-pretty text-[12px] leading-[1.5] text-thread-muted sm:col-span-2">Stays in this browser. Country and province only tune Shop results — Rove never stores an address or infers skin tone from identity.</p>
           </div>
         </details>
 
-        <p v-if="error" role="alert" class="text-sm font-medium text-thread-danger">{{ error }}</p>
+        <p v-if="error" role="alert" class="rounded-2xl bg-thread-danger/[0.07] px-4 py-3 text-[14px] text-thread-danger">{{ error }}</p>
 
-        <div class="flex flex-col gap-3 border-t border-thread-line pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p class="max-w-sm text-xs leading-5 text-thread-muted">Saved only in this browser. Change it anytime from your profile.</p>
-          <button type="submit" class="flex min-h-12 cursor-pointer items-center justify-center gap-3 rounded-full bg-thread-ink px-6 text-sm font-medium text-white shadow-soft transition hover:bg-thread-accent sm:min-w-44">
-            {{ editing ? 'Save profile' : 'Enter Rove' }}
-            <ArrowRight class="h-4 w-4" :stroke-width="1.8" aria-hidden="true" />
+        <div class="pt-4">
+          <button type="submit" class="rove-btn-primary min-h-[52px] w-full text-[17px]">
+            {{ editing ? 'Save' : 'Continue' }}
           </button>
+          <p class="mt-3 text-center text-[12px] text-thread-muted">Saved only in this browser.</p>
         </div>
       </form>
     </div>

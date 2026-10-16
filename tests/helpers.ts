@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { PRODUCTS } from '../app/data/products'
 import { createThreadActions } from '../app/domain/threadActions'
-import { emptySearchState, type CartState, type Product, type ProductCandidateInput, type SearchState, type StyleProfile } from '../app/types/thread'
+import { emptyCartState, emptySearchState, type CartState, type Product, type ProductCandidateInput, type SearchState, type StyleProfile } from '../app/types/thread'
 import type { StorageAdapter } from '../app/utils/storage'
 
 export interface MemoryStorage extends StorageAdapter {
@@ -18,6 +18,9 @@ export function makeStorage(initial: Record<string, string> = {}): MemoryStorage
   }
 }
 
+/** The brief Rove is built to run hands-off. */
+export const FLAGSHIP_BRIEF = 'I\'m going on a vacation to Cancun get me three clothes and a perfume, two footwears with a budget of $450 CAD'
+
 export const DEFAULT_PROFILE: StyleProfile = {
   version: 4,
   name: 'Chris',
@@ -32,7 +35,7 @@ export function makeActions(options: {
   fixtures?: readonly Product[]
 } = {}) {
   const profile = ref<StyleProfile | null>(options.profile === undefined ? DEFAULT_PROFILE : options.profile)
-  const cart = ref<CartState>({ version: 3, items: [] })
+  const cart = ref<CartState>(emptyCartState())
   const search = ref<SearchState>(emptySearchState())
   const hydrated = ref(options.hydrated ?? true)
   const storage = options.storage ?? makeStorage()
@@ -73,4 +76,24 @@ export function startRestrictedSearch(
     constraints: { maxPriceCad: 180, retailerIds },
     needs: [{ intent: 'dinner', queries: ['dinner outfit'], categories: [], required: true }],
   })
+}
+
+type Actions = ReturnType<typeof makeActions>['actions']
+
+/** Mirrors an agent without Shop connected: every Shop catalogue target resolves as no-results. */
+export function resolveShopCatalogAsUnavailable(actions: Actions, searchId: string) {
+  const queued = () => actions.getSearchStatus(searchId).targets
+    .filter(target => target.sourceType === 'catalog' && target.status === 'queued').length
+  for (let remaining = queued(); remaining > 0; remaining = queued()) {
+    const claimed = actions.claimSearchTargets({ searchId, limit: Math.min(4, remaining) }).targets
+    for (const target of claimed) {
+      if (target.sourceType !== 'catalog') throw new Error(`Expected a Shop catalogue target, claimed ${target.id}.`)
+      actions.completeSearchTarget({ searchId, targetId: target.id, status: 'no-results', note: 'Shop unavailable' })
+    }
+  }
+}
+
+export function claimRetailerTargets(actions: Actions, input: Parameters<Actions['claimSearchTargets']>[0]) {
+  resolveShopCatalogAsUnavailable(actions, input.searchId)
+  return actions.claimSearchTargets(input)
 }

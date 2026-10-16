@@ -90,6 +90,13 @@ export interface StyleProfile {
   usualBudgetCad?: number
   preferredRetailerIds?: string[]
   excludedRetailerIds?: string[]
+  /** Coarse delivery locality for Shop search context. Never an address or postal code. */
+  destination?: ShoppingDestination
+}
+
+export interface ShoppingDestination {
+  country: string
+  region?: string
 }
 
 export interface RetailerCapabilities {
@@ -112,12 +119,20 @@ export interface RetailerAdapter {
   searchTemplate: string
 }
 
+/** What a reference image tells the mission: its board item plus colour and style cues. */
+export interface VisualGuide {
+  inspirationId?: string
+  palette: string[]
+  descriptors: string[]
+}
+
 export interface MissionContext {
   tripType?: string
   destination?: string
   climateHints: string[]
   occasions: Occasion[]
   notes?: string
+  visualGuide?: VisualGuide
 }
 
 export interface MissionNeed {
@@ -127,7 +142,16 @@ export interface MissionNeed {
   categories: ProductCategory[]
   required: boolean
   quantity: number
+  /** Hard per-need cap the person stated. */
   budgetCad?: number
+  /** Store restrictions for this item; empty arrays explicitly leave this need open to any store. */
+  retailerIds?: string[]
+  storeDomains?: string[]
+  storeNames?: string[]
+  /** Soft share of the overall budget from category price priors; guides search and ranking only. */
+  allocationCad?: number
+  /** Most one item can cost while the rest of the basket stays affordable. */
+  priceCeilingCad?: number
 }
 
 export interface MissionConstraints {
@@ -136,6 +160,8 @@ export interface MissionConstraints {
   categories: ProductCategory[]
   retailerIds: string[]
   excludedRetailerIds: string[]
+  storeDomains?: string[]
+  storeNames?: string[]
 }
 
 export interface SearchMission {
@@ -148,6 +174,7 @@ export interface SearchMission {
   constraints: MissionConstraints
   derivedQueries: string[]
   createdAt: string
+  seeds?: SimilaritySeed[]
 }
 
 export interface SearchMissionInput {
@@ -162,16 +189,82 @@ export interface SearchMissionInput {
     required?: boolean
     quantity?: number
     budgetCad?: number
+    retailerIds?: string[]
+    storeDomains?: string[]
+    storeNames?: string[]
   }>
   constraints?: Partial<MissionConstraints>
+  seeds?: SimilaritySeed[]
 }
+
+export type BudgetScope = 'total' | 'each'
+
+/** Deterministic reading of a free-text brief. */
+export interface ParsedBrief {
+  items: Array<{ phrase: string; quantity: number; categories: ProductCategory[]; group: 'clothes' | 'category'; hint?: string; explicitQuantity: boolean }>
+  budget?: { amountCad: number; scope: BudgetScope }
+  destination?: string
+  climate?: 'hot' | 'cold' | 'mild'
+}
+
+export type ResearchSourceType = 'retailer' | 'discovery' | 'catalog'
+
+/** Exact `search_catalog` argument object sent unchanged by the built-in browser transport or an official agent binding. */
+export type ShopLikeEntry = { id: string } | { image: { content_type: string; data: string } }
+
+export interface ShopCatalogQuery {
+  query?: string
+  like?: ShopLikeEntry[]
+  context: {
+    address_country: string
+    address_region?: string
+    currency: 'CAD'
+    intent?: string
+  }
+  filters?: {
+    price?: { max: number }
+    attributes?: Array<{ name: string; values: string[] }>
+    shops?: string[]
+  }
+  pagination: { limit: number }
+}
+
+export interface ShopCatalogRequest {
+  tool: 'search_catalog'
+  arguments: { catalog: ShopCatalogQuery }
+}
+
+export type InspirationSource = 'pinterest' | 'upload'
+
+/** A visual reference. Pins keep their image URL; uploads keep a small downscaled JPEG data URL. */
+export interface InspirationItem {
+  id: string
+  source: InspirationSource
+  imageUrl?: string
+  imageData?: string
+  sourceUrl?: string
+  note?: string
+  needIds: string[]
+  searchId?: string
+  targetId?: string
+  addedAt: string
+}
+
+export interface InspirationState {
+  version: 1
+  items: InspirationItem[]
+}
+
+export type SimilaritySeed =
+  | { kind: 'product'; productId: string; name: string; shopProductId?: string; category?: ProductCategory }
+  | { kind: 'image'; inspirationId: string; source: InspirationSource; imageUrl?: string; note?: string }
 
 export interface ResearchTarget {
   id: string
   retailerId: string
   name: string
   logo: string
-  sourceType: 'retailer' | 'discovery'
+  sourceType: ResearchSourceType
   status: ResearchTargetStatus
   relevanceScore: number
   priorityScore: number
@@ -187,6 +280,49 @@ export interface ResearchTarget {
   claimedBy: string | null
   claimedAt: string | null
   updatedAt: string | null
+  catalogRequests?: ShopCatalogRequest[]
+  seed?: SimilaritySeed
+}
+
+export interface ShopSelectedOption {
+  name: string
+  label: string
+}
+
+/** Shop provenance. `url` is the exact returned variant URL, kept with every query parameter. */
+export interface ProductCommerce {
+  provider: 'shop'
+  productId: string
+  variantId?: string
+  sellerDomain: string
+  sellerId?: string
+  sellerName?: string
+  sellerUrl?: string
+  url: string
+  selectedOptions: ShopSelectedOption[]
+  checkoutUrl?: string
+}
+
+/** One exact Shop size/colour combination, as returned by search_catalog or get_product. */
+export interface ProductVariant {
+  id: string
+  options: ShopSelectedOption[]
+  size?: string
+  color?: string
+  available: boolean
+  priceMinor?: number
+  currency?: string
+  priceCad?: number
+  checkoutUrl?: string
+  url?: string
+}
+
+export interface CartSelection {
+  size?: string
+  color?: string
+  variantId?: string
+  selectedOptions?: ShopSelectedOption[]
+  checkoutUrl?: string
 }
 
 export interface Product {
@@ -219,6 +355,29 @@ export interface Product {
   availability: ProductAvailability
   observedAt: string
   relevanceScore: number
+  commerce?: ProductCommerce
+  variants?: ProductVariant[]
+}
+
+/** Shop `search_catalog` fields copied unchanged from the featured variant. */
+export interface ShopCandidateInput {
+  productId: string
+  variantId?: string
+  sellerDomain: string
+  sellerId?: string
+  sellerName?: string
+  sellerUrl?: string
+  price?: { amount: number; currency: string }
+  available?: boolean
+  selectedOptions?: ShopSelectedOption[]
+  /** search_catalog product.options unchanged: every size and colour the product is offered in. */
+  options?: ShopProductOption[]
+  checkoutUrl?: string
+}
+
+export interface ShopProductOption {
+  name: string
+  values: Array<{ label: string; available?: boolean }>
 }
 
 export interface ProductCandidateInput {
@@ -235,6 +394,10 @@ export interface ProductCandidateInput {
   category?: ProductCategory
   shoppingDepartment?: ShoppingDepartment
   needIds?: string[]
+  shop?: ShopCandidateInput
+  /** Every size and colour a retailer listing shows; Shop candidates send shop.options instead. */
+  sizes?: string[]
+  colors?: string[]
 }
 
 /** Development-only input for the curated fixture provider. Not exposed through WebMCP. */
@@ -265,6 +428,17 @@ export interface ProductEnrichmentInput {
   description?: string
   material?: string
   availability?: ProductAvailability
+  requestedOptions?: ShopSelectedOption[]
+  shopProductId?: string
+  variants?: Array<{
+    id: string
+    options: ShopSelectedOption[]
+    available: boolean
+    price?: { amount: number; currency: string }
+    priceCad?: number
+    checkoutUrl?: string
+    url?: string
+  }>
 }
 
 export interface RankingTrace {
@@ -309,6 +483,8 @@ export interface NeedFulfillment {
   subtotalCad: number
   budgetCad?: number
   satisfied: boolean
+  /** Enough priced alternatives that the pick reflects a real choice, not the first arrivals. */
+  deep: boolean
 }
 
 export interface SearchFulfillment {
@@ -317,6 +493,10 @@ export interface SearchFulfillment {
   subtotalCad: number
   overallBudgetCad?: number
   satisfied: boolean
+  /** Satisfied with enough depth in every required need that research may stop early. */
+  ready: boolean
+  /** Optimizer objective of the selected basket, for traceability. */
+  basketScore: number
 }
 
 export type RecommendationReviewResolution =
@@ -385,6 +565,8 @@ export interface ResearchHistoryState {
   version: 1
   entries: SavedResearchEntry[]
   seenProductKeys: string[]
+  /** Brands from purchases the agent reported; used only as style cues. */
+  purchasedBrands: string[]
 }
 
 export interface SearchCoverage {
@@ -409,12 +591,56 @@ export interface CartItem {
   product: Product
   size?: string
   color?: string
+  variantId?: string
+  selectedOptions?: ShopSelectedOption[]
   addedAt: string
 }
 
+/** A merchant cart the agent created through Shop for one seller group. Rove only keeps the handoff link. */
+export interface MerchantCart {
+  groupKey: string
+  sellerName: string
+  itemsHash: string
+  continueUrl: string
+  cartId?: string
+  totalMinor?: number
+  currency?: string
+  messages: string[]
+  status: 'ready' | 'ordered'
+  orderPermalink?: string
+  updatedAt: string
+}
+
 export interface CartState {
-  version: 3
+  version: 4
   items: CartItem[]
+  merchantCarts: MerchantCart[]
+}
+
+export type CheckoutGroupStatus = 'buy-at-retailer' | 'needs-cart' | 'ready' | 'stale' | 'ordered'
+
+export interface CheckoutLine {
+  itemId: string
+  productId: string
+  name: string
+  quantity: 1
+  priceCad?: number
+  retailerUrl: string
+  shopProductId?: string
+  variantId?: string
+  selected: ShopSelectedOption[]
+  checkoutUrl?: string
+}
+
+export interface CheckoutGroup {
+  key: string
+  provider: 'shop' | 'retailer'
+  sellerName: string
+  sellerDomain?: string
+  lines: CheckoutLine[]
+  estimatedSubtotalCad: number
+  status: CheckoutGroupStatus
+  merchantCart?: MerchantCart
 }
 
 export interface CartTotal {
@@ -427,6 +653,7 @@ export interface CartSummary {
   itemCount: number
   totals: CartTotal[]
   unpricedItemCount: number
+  groups: CheckoutGroup[]
 }
 
 export interface ThreadToastMessage {
@@ -452,7 +679,7 @@ export interface AddToCartResult {
 export interface PublishCandidatesResult {
   searchId: string
   accepted: Product[]
-  rejected: Array<{ index: number; reason: string }>
+  rejected: Array<{ index: number; name?: string; reason: string }>
   coverage: SearchCoverage
   nextAction: 'publish_candidates' | 'complete_search_target' | 'claim_search_targets'
 }
@@ -471,10 +698,18 @@ export function emptySearchState(): SearchState {
   return { version: 4, activeSearch: null, recentSearches: [] }
 }
 
+export function emptyCartState(): CartState {
+  return { version: 4, items: [], merchantCarts: [] }
+}
+
 export function emptyResultFilters(): ResultFilters {
   return { retailer: '', brand: '', category: '', maxPriceCad: undefined, sort: 'recommended' }
 }
 
+export function emptyInspirationState(): InspirationState {
+  return { version: 1, items: [] }
+}
+
 export function emptyResearchHistory(): ResearchHistoryState {
-  return { version: 1, entries: [], seenProductKeys: [] }
+  return { version: 1, entries: [], seenProductKeys: [], purchasedBrands: [] }
 }

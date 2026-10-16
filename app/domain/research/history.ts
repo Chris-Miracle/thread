@@ -12,6 +12,7 @@ import {
 
 export const RESEARCH_HISTORY_ENTRY_LIMIT = 30
 export const SEEN_PRODUCT_KEY_LIMIT = 2_000
+export const PURCHASED_BRAND_LIMIT = 30
 
 function record(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null ? value as Record<string, unknown> : null
@@ -62,7 +63,10 @@ export function hydrateResearchHistory(value: unknown): ResearchHistoryState {
     ...storedKeys,
     ...entries.flatMap(entry => entry.products.map(product => productFreshnessKey(product.url))),
   ])].slice(-SEEN_PRODUCT_KEY_LIMIT)
-  return { version: 1, entries, seenProductKeys }
+  const purchasedBrands = Array.isArray(root.purchasedBrands)
+    ? [...new Set(root.purchasedBrands.filter((brand): brand is string => typeof brand === 'string' && Boolean(brand)))].slice(-PURCHASED_BRAND_LIMIT)
+    : []
+  return { version: 1, entries, seenProductKeys, purchasedBrands }
 }
 
 export function archiveReviewedSearch(
@@ -91,7 +95,7 @@ export function archiveReviewedSearch(
     ...history.seenProductKeys,
     ...collection.map(product => productFreshnessKey(product.url)),
   ])].slice(-SEEN_PRODUCT_KEY_LIMIT)
-  return { version: 1, entries, seenProductKeys }
+  return { version: 1, entries, seenProductKeys, purchasedBrands: [...history.purchasedBrands] }
 }
 
 export function recordSeenProducts(history: ResearchHistoryState, products: readonly Product[]): ResearchHistoryState {
@@ -102,6 +106,17 @@ export function recordSeenProducts(history: ResearchHistoryState, products: read
       ...history.seenProductKeys,
       ...products.map(product => productFreshnessKey(product.url)),
     ])].slice(-SEEN_PRODUCT_KEY_LIMIT),
+    purchasedBrands: [...history.purchasedBrands],
+  }
+}
+
+/** Purchased product families are never recommended again; brands become style cues. */
+export function recordPurchaseSignals(history: ResearchHistoryState, productUrls: readonly string[], brands: readonly string[]): ResearchHistoryState {
+  return {
+    version: 1,
+    entries: history.entries.map(cloneEntry),
+    seenProductKeys: [...new Set([...history.seenProductKeys, ...productUrls.map(productFreshnessKey)])].slice(-SEEN_PRODUCT_KEY_LIMIT),
+    purchasedBrands: [...new Set([...history.purchasedBrands, ...brands])].slice(-PURCHASED_BRAND_LIMIT),
   }
 }
 
@@ -110,5 +125,6 @@ export function cloneResearchHistory(history: ResearchHistoryState): ResearchHis
     version: 1,
     entries: history.entries.map(cloneEntry),
     seenProductKeys: [...history.seenProductKeys],
+    purchasedBrands: [...history.purchasedBrands],
   }
 }

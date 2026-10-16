@@ -1,6 +1,6 @@
-import type { CartState } from '~/types/thread'
+import { emptyCartState, type CartState } from '~/types/thread'
 
 export function useThreadCart() {
-  const cart = useState<CartState>('thread-cart', () => ({ version: 3, items: [] }))
+  const cart = useState<CartState>('thread-cart', emptyCartState)
   return { cart }
 }

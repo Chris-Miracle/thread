@@ -1,0 +1,390 @@
+{
+  "ucp": {
+    "version": "2026-08-25"
+  },
+  "products": [
+    {
+      "id": "gid://shopify/p/TSQ9KMZz8AfmAiuf6zNyv",
+      "title": "Linen Shirt",
+      "description": {
+        "plain": "A classic women's collared long sleeve button-up shirt  made with cool, pre-washed French linen that gets softer with each wear. Breathable and lightweight, you can wear it on its own, or layered over a t-shirt.\u00a0    \n French linen is from"
+      },
+      "rating": {
+        "value": 4.8,
+        "scale_min": 1,
+        "scale_max": 5,
+        "count": 65
+      },
+      "media": [
+        {
+          "type": "image",
+          "url": "https://cdn.shopify.com/s/files/1/0556/8066/3742/files/4548076152446_06_org.jpg",
+          "alt_text": "Linen Shirt Charcoal Gray MUJI"
+        }
+      ],
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            {
+              "label": "Ivory Stripe"
+            },
+            {
+              "label": "Light Blue"
+            },
+            {
+              "label": "Light Green"
+            },
+            {
+              "label": "Light Orange"
+            },
+            {
+              "label": "Saxe Blue Stripe"
+            }
+          ]
+        },
+        {
+          "name": "Size",
+          "values": [
+            {
+              "label": "XS"
+            },
+            {
+              "label": "S"
+            },
+            {
+              "label": "L"
+            },
+            {
+              "label": "XL"
+            }
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "id": "gid://shopify/ProductVariant/46010977517758",
+          "title": "Linen Shirt",
+          "description": {
+            "plain": "A classic women's collared long sleeve button-up shirt  made with cool, pre-washed French linen that gets softer with each wear. Breathable and lightweight, you can wear it on its own, or layered over a t-shirt.\u00a0    \n French linen is from"
+          },
+          "url": "https://www.muji.us/products/linen-shirt-bc2pv26s?variant=46010977517758&_gsid=sNKyG6pTpKJ3&utm_source=shopify&utm_medium=catalog",
+          "price": {
+            "amount": 7400,
+            "currency": "CAD"
+          },
+          "list_price": {
+            "amount": 9600,
+            "currency": "CAD"
+          },
+          "availability": {
+            "available": false
+          },
+          "options": [
+            {
+              "name": "Color",
+              "label": "Charcoal Gray"
+            },
+            {
+              "name": "Size",
+              "label": "M"
+            }
+          ],
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/0556/8066/3742/files/4548076152446_06_org.jpg",
+              "alt_text": "Linen Shirt Charcoal Gray MUJI"
+            }
+          ],
+          "seller": {
+            "id": "gid://shopify/Shop/55680663742",
+            "name": "MUJI USA",
+            "url": "https://www.muji.us",
+            "domain": "muji-us.myshopify.com"
+          },
+          "checkout_url": "https://www.muji.us/cart/46010977517758:1?_gsid=sNKyG6pTpKJ3&utm_source=shopify&utm_medium=catalog&payment=shop_pay",
+          "rating": {
+            "value": 4.9,
+            "scale_min": 1,
+            "scale_max": 5,
+            "count": 19
+          },
+          "condition": [
+            "new"
+          ]
+        }
+      ],
+      "price_range": {
+        "min": {
+          "amount": 7400,
+          "currency": "CAD"
+        },
+        "max": {
+          "amount": 7400,
+          "currency": "CAD"
+        }
+      }
+    },
+    {
+      "id": "gid://shopify/p/cFO5XKD3uziBvvbVhffae",
+      "title": "Laidback Linen Button Down Shirt",
+      "description": {
+        "plain": "Blending casual resort wear into your everyday style, our Laidback Linen Button Down Shirt  boasts a traditional silhouette and versatile linen blend fabric for a wardrobe staple that never goes out of style. This shirt features a full butt"
+      },
+      "rating": {
+        "value": 4.6,
+        "scale_min": 1,
+        "scale_max": 5,
+        "count": 33
+      },
+      "media": [
+        {
+          "type": "image",
+          "url": "https://cdn.shopify.com/s/files/1/1115/2394/files/29e2e22d-a280-45f0-9843-61ffb51d5ef0.jpg",
+          "alt_text": "Light Sage"
+        }
+      ],
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            {
+              "label": "Black"
+            },
+            {
+              "label": "Cantaloupe"
+            },
+            {
+              "label": "Cherry Red"
+            },
+            {
+              "label": "Ivory"
+            },
+            {
+              "label": "Light Blue"
+            },
+            {
+              "label": "Light Sage"
+            },
+            {
+              "label": "Olive"
+            },
+            {
+              "label": "Sand"
+            }
+          ]
+        },
+        {
+          "name": "Size",
+          "values": [
+            {
+              "label": "S"
+            },
+            {
+              "label": "M"
+            },
+            {
+              "label": "L"
+            },
+            {
+              "label": "XL"
+            }
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "id": "gid://shopify/ProductVariant/44096641073274",
+          "title": "Laidback Linen Button Down Shirt",
+          "description": {
+            "plain": "Blending casual resort wear into your everyday style, our Laidback Linen Button Down Shirt  boasts a traditional silhouette and versatile linen blend fabric for a wardrobe staple that never goes out of style. This shirt features a full butt"
+          },
+          "url": "https://www.rbxactive.com/products/laidback-linen-button-down-shirt?variant=44096641073274&_gsid=sNKyG6pTpKJ3&utm_source=shopify&utm_medium=catalog",
+          "price": {
+            "amount": 2500,
+            "currency": "CAD"
+          },
+          "list_price": {
+            "amount": 7300,
+            "currency": "CAD"
+          },
+          "availability": {
+            "available": true
+          },
+          "options": [
+            {
+              "name": "Color",
+              "label": "Light Sage"
+            },
+            {
+              "name": "Size",
+              "label": "M"
+            }
+          ],
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/1115/2394/files/29e2e22d-a280-45f0-9843-61ffb51d5ef0.jpg",
+              "alt_text": "Light Sage"
+            }
+          ],
+          "seller": {
+            "id": "gid://shopify/Shop/11152394",
+            "name": "RBX Active",
+            "url": "https://www.rbxactive.com",
+            "domain": "rbxactive.myshopify.com"
+          },
+          "checkout_url": "https://www.rbxactive.com/cart/44096641073274:1?_gsid=sNKyG6pTpKJ3&utm_source=shopify&utm_medium=catalog&payment=shop_pay",
+          "rating": {
+            "value": 4.4,
+            "scale_min": 1,
+            "scale_max": 5,
+            "count": 37
+          },
+          "condition": [
+            "new"
+          ]
+        }
+      ],
+      "price_range": {
+        "min": {
+          "amount": 2500,
+          "currency": "CAD"
+        },
+        "max": {
+          "amount": 2500,
+          "currency": "CAD"
+        }
+      }
+    },
+    {
+      "id": "gid://shopify/p/1AhFnKDWDBAAHV5NjpltCm",
+      "title": "On Your Mind Linen Shirt - White",
+      "description": {
+        "plain": "Available In White. \n Linen Shirt \n Long Sleeve \n Button Down \n Collar \n Tie Front \n 2 Front Cargo Pockets \n Cropped \n Non Stretch \n Self: 90% Viscose 10% Linen \n Imported \n  Available In Plus Sizes"
+      },
+      "rating": {
+        "value": 4.2,
+        "scale_min": 1,
+        "scale_max": 5,
+        "count": 70
+      },
+      "media": [
+        {
+          "type": "image",
+          "url": "https://cdn.shopify.com/s/files/1/0293/9277/files/03-13-24_S4_17_IT11424_White_P_KJ_RL_13-15-28_6936_PXF.jpg",
+          "alt_text": "On Your Mind Linen Shirt - White"
+        }
+      ],
+      "options": [
+        {
+          "name": "Size",
+          "values": [
+            {
+              "label": "XS"
+            },
+            {
+              "label": "S"
+            },
+            {
+              "label": "M"
+            },
+            {
+              "label": "L"
+            },
+            {
+              "label": "XL"
+            },
+            {
+              "label": "1X"
+            },
+            {
+              "label": "2X"
+            },
+            {
+              "label": "3X"
+            }
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "id": "gid://shopify/ProductVariant/39275266441340",
+          "title": "On Your Mind Linen Shirt - White",
+          "description": {
+            "plain": "Available In White. \n Linen Shirt \n Long Sleeve \n Button Down \n Collar \n Tie Front \n 2 Front Cargo Pockets \n Cropped \n Non Stretch \n Self: 90% Viscose 10% Linen \n Imported \n  Available In Plus Sizes"
+          },
+          "url": "https://www.fashionnova.com/products/on-your-mind-linen-shirt-fncolorname-white?variant=39275266441340&_gsid=sNKyG6pTpKJ3&utm_source=shopify&utm_medium=catalog",
+          "price": {
+            "amount": 3700,
+            "currency": "CAD"
+          },
+          "availability": {
+            "available": true
+          },
+          "options": [
+            {
+              "name": "Size",
+              "label": "M"
+            }
+          ],
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/0293/9277/files/03-13-24_S4_17_IT11424_White_P_KJ_RL_13-15-28_6936_PXF.jpg",
+              "alt_text": "On Your Mind Linen Shirt - White"
+            }
+          ],
+          "seller": {
+            "id": "gid://shopify/Shop/2939277",
+            "name": "Fashion Nova",
+            "url": "https://www.fashionnova.com",
+            "domain": "fnova.myshopify.com"
+          },
+          "checkout_url": "https://www.fashionnova.com/cart/39275266441340:1?_gsid=sNKyG6pTpKJ3&utm_source=shopify&utm_medium=catalog&payment=shop_pay",
+          "condition": [
+            "new"
+          ]
+        }
+      ],
+      "price_range": {
+        "min": {
+          "amount": 3700,
+          "currency": "CAD"
+        },
+        "max": {
+          "amount": 3700,
+          "currency": "CAD"
+        }
+      }
+    }
+  ],
+  "messages": [
+    {
+      "type": "info",
+      "code": "price_filter_applied",
+      "path": "$.filters.price",
+      "content": "Price filtering was applied on a USD basis; returned prices are contextualized to the buyer's market and may differ.",
+      "data": {
+        "request_currency": "CAD",
+        "applied_usd": {
+          "max": 56.26984
+        },
+        "conversion": {
+          "max": "fx_converted"
+        }
+      }
+    }
+  ],
+  "pagination": {
+    "has_next_page": true,
+    "total_count": 339,
+    "cursor": "eyJvZmZzZXQiOjMsInRvdGFsX2NvdW50IjozMzksInJldHVybmVkIjozfQ"
+  },
+  "next": [
+    "Show every warning; it may change price, availability, terms or required disclosures. Keep disclosures with their target, image and link; never hide or auto-dismiss them. Show info when useful. If unable, explain the limitation.",
+    "A featured variant may already answer the user's needs; use get_product only for other options or a concrete missing fact. Preserve the exact variant and seller. Create a basket or checkout only for user-directed basket, quote or review intent.",
+    "For useful adjacent alternatives, use search_catalog with one returned product or variant ID in `like`. Keep hard requirements in supported filters; preserve and verify the rest. Never substitute without user approval."
+  ]
+}

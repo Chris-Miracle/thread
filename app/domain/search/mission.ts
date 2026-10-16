@@ -1,9 +1,12 @@
+import { promptStores, scopeBriefNeeds, storeDomain } from '~/domain/search/stores'
 import { retailerIdsMentionedIn, RETAILER_BY_ID } from '~/data/retailers'
 import { stableHash } from '~/domain/productIdentity'
+import { clothesCategories, parseBrief, parseBudget, queriesForItem } from '~/domain/search/briefParser'
+import { allocateBudget } from '~/domain/search/priceModel'
 import {
   OCCASIONS, PRODUCT_CATEGORIES, SHOPPING_DEPARTMENTS, STYLE_OPTIONS,
-  type MissionNeed, type Occasion, type ProductCategory, type SearchMission,
-  type SearchMissionInput, type ShoppingDepartment, type StyleId, type StyleProfile,
+  type MissionNeed, type Occasion, type ParsedBrief, type ProductCategory, type SearchMission,
+  type SearchMissionInput, type ShoppingDepartment, type StyleId, type StyleProfile, type VisualGuide,
 } from '~/types/thread'
 
 const departmentIds = new Set<string>(SHOPPING_DEPARTMENTS.map(item => item.id))
@@ -20,7 +23,7 @@ const CATEGORY_TERMS: Record<ProductCategory, string[]> = {
   accessories: ['accessories', 'accessory', 'bag', 'belt', 'sunglasses', 'hat', 'cap', 'jewelry'],
   activewear: ['activewear', 'workout', 'gym', 'training', 'leggings', 'running'],
   swimwear: ['swimwear', 'swimsuit', 'bikini', 'swim shorts', 'swim trunks'],
-  fragrance: ['fragrance', 'fragrances', 'perfume', 'cologne', 'eau de toilette', 'eau de parfum'],
+  fragrance: ['fragrance', 'fragrances', 'perfume', 'perfumes', 'cologne', 'colognes', 'eau de toilette', 'eau de parfum'],
 }
 
 const OCCASION_TERMS: Record<Occasion, string[]> = {
@@ -30,7 +33,7 @@ const OCCASION_TERMS: Record<Occasion, string[]> = {
   casual: ['casual', 'everyday'],
   weekend: ['weekend'],
   party: ['party', 'club'],
-  formal: ['formal', 'wedding', 'gala'],
+  formal: ['formal', 'wedding', 'gala', 'engagement'],
   travel: ['travel', 'flight', 'airport', 'trip'],
   training: ['training', 'gym', 'workout', 'running'],
   vacation: ['vacation', 'getaway', 'holiday trip', 'on holiday'],
@@ -108,6 +111,31 @@ function fallbackNeeds(rawPrompt: string, categories: ProductCategory[]): Missio
   }]
 }
 
+/** One need per brief item, quantity preserved: "three clothes and a perfume" becomes two needs, not one query. */
+function lineItemNeeds(items: ParsedBrief['items'], climate: ParsedBrief['climate'], department: ShoppingDepartment, dinner = false): MissionNeed[] {
+  return items.map((item, index) => ({
+    id: `need:${stableHash(`${index}:${item.phrase}`)}`,
+    intent: item.group === 'clothes' ? 'clothes' : (item.hint ?? item.phrase).replace(/^footwears$/, 'footwear'),
+    queries: queriesForItem(item, climate, department, dinner),
+    categories: item.group === 'clothes' ? clothesCategories(climate, department) : [...item.categories],
+    required: true,
+    quantity: item.quantity,
+  }))
+}
+
+const MAX_GUIDE_COLOURS = 5
+const MAX_GUIDE_DESCRIPTORS = 8
+
+function validateVisualGuide(input: VisualGuide | undefined): VisualGuide | undefined {
+  if (!input) return undefined
+  const guide = {
+    inspirationId: input.inspirationId?.trim() || undefined,
+    palette: cleanList(input.palette, MAX_GUIDE_COLOURS, 30).map(colour => colour.toLowerCase()),
+    descriptors: cleanList(input.descriptors, MAX_GUIDE_DESCRIPTORS, 40).map(descriptor => descriptor.toLowerCase()),
+  }
+  return guide.inspirationId || guide.palette.length || guide.descriptors.length ? guide : undefined
+}
+
 function validateNeeds(input: SearchMissionInput['needs']): MissionNeed[] {
   if (!input?.length) return []
   if (input.length > 12) throw new Error('A mission may contain at most 12 needs.')
@@ -131,13 +159,20 @@ function validateNeeds(input: SearchMissionInput['needs']): MissionNeed[] {
       required: need.required ?? true,
       quantity,
       budgetCad: budgetCad !== undefined ? Number(budgetCad.toFixed(2)) : undefined,
+      ...(need.retailerIds !== undefined ? { retailerIds: validRetailerIds(need.retailerIds, true) } : {}),
+      ...(need.storeDomains !== undefined ? { storeDomains: need.storeDomains.map(storeDomain) } : {}),
+      ...(need.storeNames !== undefined ? { storeNames: cleanList(need.storeNames, 10) } : {}),
     }
   })
 }
 
-function validRetailerIds(values: readonly string[] | undefined): string[] {
+function validRetailerIds(values: readonly string[] | undefined, strict = false): string[] {
+  if (strict && values?.some(id => !RETAILER_BY_ID.has(id))) throw new Error('Unknown retailer ID. Use storeNames for an unfamiliar store or storeDomains for a verified official domain.')
   return [...new Set(values ?? [])].filter(id => RETAILER_BY_ID.has(id))
 }
+
+// Shop accepts one or two `like` entries per search; each seed becomes its own similarity target.
+export const MAX_MISSION_SEEDS = 2
 
 export function createSearchMission(
   input: SearchMissionInput,
@@ -150,17 +185,28 @@ export function createSearchMission(
   const stylePreferences = [...new Set(input.stylePreferences ?? profile?.styles ?? [])]
   if (!stylePreferences.every(style => styleIds.has(style))) throw new Error('Mission contains an unsupported style preference.')
 
-  const explicitCategories = [...new Set(input.constraints?.categories ?? (input.needs?.length ? [] : inferCategories(rawPrompt)))]
-  if (!explicitCategories.every(category => categoryIds.has(category))) throw new Error('Mission contains an unsupported category constraint.')
   const inferredOccasions = inferOccasions(rawPrompt)
   const isVacation = inferredOccasions.includes('vacation')
     || /\bvacation\b|\bgetaway\b|\bholiday\s+(?:trip|travel|getaway)\b|\b(?:on|for a)\s+holiday\b/i.test(rawPrompt)
+  const brief = parseBrief(rawPrompt)
+  // A bare "get my clothes for vacation" keeps the richer vacation plan; counted or named items become line items.
+  const useLineItems = !input.needs?.length && brief.items.length > 0
+    && (!isVacation || brief.items.some(item => item.explicitQuantity || item.group === 'category'))
+  const explicitCategories = [...new Set(input.constraints?.categories ?? (
+    input.needs?.length
+      ? []
+      : useLineItems
+        ? brief.items.flatMap(item => item.group === 'clothes' ? clothesCategories(brief.climate, shoppingDepartment as ShoppingDepartment) : item.categories)
+        : inferCategories(rawPrompt)
+  ))]
+  if (!explicitCategories.every(category => categoryIds.has(category))) throw new Error('Mission contains an unsupported category constraint.')
   const suppliedOccasions = [...new Set(input.context?.occasions ?? inferredOccasions)]
   if (!suppliedOccasions.every(occasion => occasionIds.has(occasion))) throw new Error('Mission contains an unsupported occasion.')
 
   const destination = input.context?.destination?.trim()
-    || (/\bcanc[uú]n\b/i.test(rawPrompt) ? 'Cancun' : undefined)
+    || (/\bcanc[uú]n\b/i.test(rawPrompt) ? 'Cancun' : brief.destination)
   const climateHints = cleanList(input.context?.climateHints, 8)
+  if (brief.climate && !climateHints.includes(brief.climate)) climateHints.push(brief.climate)
   if (destination?.toLowerCase() === 'cancun') {
     for (const hint of ['hot', 'humid', 'tropical']) {
       if (!climateHints.includes(hint)) climateHints.push(hint)
@@ -173,25 +219,41 @@ export function createSearchMission(
   }
 
   const providedNeeds = validateNeeds(input.needs)
-  const needs = providedNeeds.length
+  let plannedNeeds = providedNeeds.length
     ? providedNeeds
-    : isVacation
-      ? vacationNeeds(shoppingDepartment)
-      : fallbackNeeds(rawPrompt, explicitCategories)
-  const derivedQueries = [...new Set(needs.flatMap(need => need.queries))].slice(0, 24)
+    : useLineItems
+      ? scopeBriefNeeds(rawPrompt, lineItemNeeds(brief.items, brief.climate, shoppingDepartment as ShoppingDepartment, suppliedOccasions.includes('dinner') || suppliedOccasions.includes('date-night')))
+      : isVacation
+        ? vacationNeeds(shoppingDepartment as ShoppingDepartment)
+        : fallbackNeeds(rawPrompt, explicitCategories)
+  // Explicit global store constraints override heuristic clause scoping; explicit per-need input remains authoritative.
+  if (!providedNeeds.length && (input.constraints?.retailerIds?.length || input.constraints?.storeDomains?.length || input.constraints?.storeNames?.length)) {
+    plannedNeeds = plannedNeeds.map(({ retailerIds: _ids, storeDomains: _domains, storeNames: _names, ...need }) => need)
+  }
+  const derivedQueries = [...new Set(plannedNeeds.flatMap(need => need.queries))].slice(0, 24)
   if (!derivedQueries.length) throw new Error('Mission must produce at least one concrete search query.')
 
+  const visualGuide = validateVisualGuide(input.context?.visualGuide)
   const mentionedRetailers = retailerIdsMentionedIn(rawPrompt)
-  const retailerIds = validRetailerIds(input.constraints?.retailerIds?.length ? input.constraints.retailerIds : mentionedRetailers)
+  const mentionedStores = promptStores(rawPrompt)
+  const storeDomains = [...new Set((input.constraints?.storeDomains ?? mentionedStores.domains).map(storeDomain))]
+  const storeNames = cleanList([...(input.constraints?.storeNames ?? mentionedStores.names), ...plannedNeeds.flatMap(need => need.storeNames ?? [])], 10)
+  const retailerIds = validRetailerIds(input.constraints?.retailerIds?.length ? input.constraints.retailerIds : mentionedRetailers, Boolean(input.constraints?.retailerIds?.length))
   const excludedRetailerIds = validRetailerIds([
     ...(profile?.excludedRetailerIds ?? []),
     ...(input.constraints?.excludedRetailerIds ?? []),
   ]).filter(id => !retailerIds.includes(id))
-  const maxPriceCad = input.constraints?.maxPriceCad ?? inferMaxPriceCad(rawPrompt) ?? profile?.usualBudgetCad
+  const statedBudget = parseBudget(rawPrompt, plannedNeeds.reduce((sum, need) => sum + need.quantity, 0))
+  const overallBudgetCad = input.constraints?.overallBudgetCad
+    ?? inferOverallBudgetCad(rawPrompt)
+    ?? (statedBudget?.scope === 'total' ? statedBudget.amountCad : undefined)
+  // A usual per-item budget never overrides a basket budget the person just stated.
+  const maxPriceCad = input.constraints?.maxPriceCad
+    ?? (statedBudget?.scope === 'each' ? statedBudget.amountCad : undefined)
+    ?? (overallBudgetCad === undefined ? profile?.usualBudgetCad : undefined)
   if (maxPriceCad !== undefined && (!Number.isFinite(maxPriceCad) || maxPriceCad <= 0)) {
     throw new Error('maxPriceCad must be a positive CAD amount.')
   }
-  const overallBudgetCad = input.constraints?.overallBudgetCad ?? inferOverallBudgetCad(rawPrompt)
   if (overallBudgetCad !== undefined && (!Number.isFinite(overallBudgetCad) || overallBudgetCad <= 0)) {
     throw new Error('overallBudgetCad must be a positive CAD amount.')
   }
@@ -207,16 +269,20 @@ export function createSearchMission(
       climateHints,
       occasions: suppliedOccasions,
       notes: input.context?.notes?.trim().slice(0, 300) || undefined,
+      ...(visualGuide ? { visualGuide } : {}),
     },
-    needs,
+    needs: allocateBudget(plannedNeeds, overallBudgetCad),
     constraints: {
       maxPriceCad,
       overallBudgetCad: overallBudgetCad !== undefined ? Number(overallBudgetCad.toFixed(2)) : undefined,
       categories: explicitCategories,
       retailerIds,
       excludedRetailerIds,
+      ...(storeDomains.length ? { storeDomains } : {}),
+      ...(storeNames.length ? { storeNames } : {}),
     },
     derivedQueries,
     createdAt: now,
+    ...(input.seeds?.length ? { seeds: input.seeds.slice(0, MAX_MISSION_SEEDS).map(seed => ({ ...seed })) } : {}),
   }
 }

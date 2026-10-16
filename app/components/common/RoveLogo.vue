@@ -6,13 +6,14 @@ withDefaults(defineProps<{ markOnly?: boolean; compact?: boolean }>(), {
 </script>
 
 <template>
-  <span class="inline-flex items-center" :class="compact ? 'gap-2.5' : 'gap-3'">
-    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" :class="compact ? 'h-8 w-8' : 'h-10 w-10'">
-      <rect x="1" y="1" width="38" height="38" rx="13" class="fill-white/45 stroke-thread-ink/15" />
-      <path d="M12.5 29V11.25h7.15c4.65 0 7.35 2.25 7.35 6.05 0 3.15-1.95 5.25-5.45 5.8L28.25 29" class="stroke-thread-ink" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-      <path d="M12.5 21.95h7.05c3.15 0 4.95-1.55 4.95-4.3 0-2.55-1.8-4.05-4.95-4.05H12.5" class="stroke-thread-ink" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-      <circle cx="29.4" cy="10.6" r="2.25" class="fill-thread-accent" />
+  <span class="inline-flex items-center" :class="compact ? 'gap-2' : 'gap-2.5'">
+    <!-- The squircle inverts with the colour scheme so the mark never sinks into the canvas. -->
+    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" :class="compact ? 'h-7 w-7' : 'h-10 w-10'">
+      <rect width="40" height="40" rx="11" class="fill-thread-ink" />
+      <path d="M13 29V11.75h6.9c4.5 0 7.1 2.2 7.1 5.9 0 3.05-1.9 5.1-5.3 5.6L27.6 29" class="stroke-thread-on-ink" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M13 22.2h6.8c3.05 0 4.8-1.5 4.8-4.15 0-2.5-1.75-3.95-4.8-3.95H13" class="stroke-thread-on-ink" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx="30" cy="10" r="2.6" class="fill-thread-accent" />
     </svg>
-    <span v-if="!markOnly" class="text-sm font-semibold tracking-[0.3em] text-thread-ink">ROVE</span>
+    <span v-if="!markOnly" class="font-display font-semibold tracking-[-0.02em] text-thread-ink" :class="compact ? 'text-[17px]' : 'text-xl'">Rove</span>
   </span>
 </template>

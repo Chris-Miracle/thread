@@ -29,10 +29,21 @@ export const optionalProfileProperties: Record<string, JSONSchemaNode> = {
   usualBudgetCad: { type: 'number', minimum: 0.01 },
   preferredRetailerIds: { type: 'array', items: { type: 'string' }, maxItems: 40 },
   excludedRetailerIds: { type: 'array', items: { type: 'string' }, maxItems: 40 },
+  destination: {
+    type: 'object',
+    description: 'Coarse delivery locality for Shop search context, e.g. from Shop get_account. Country and region only; never store a street address or postal code.',
+    properties: {
+      country: { type: 'string', description: 'ISO 3166-1 alpha-2, e.g. CA.' },
+      region: { type: 'string', description: 'Province or state, e.g. ON.' },
+    },
+    required: ['country'],
+    additionalProperties: false,
+  },
 }
 
 export function parseProfileFields(input: Record<string, unknown>) {
   const clothingSizes = optionalRecord(input, 'clothingSizes')
+  const destination = optionalRecord(input, 'destination')
   return {
     shoppingDepartment: optionalString(input, 'shoppingDepartment'),
     styles: optionalStringArray(input, 'styles'),
@@ -53,6 +64,7 @@ export function parseProfileFields(input: Record<string, unknown>) {
     usualBudgetCad: optionalNumber(input, 'usualBudgetCad'),
     preferredRetailerIds: optionalStringArray(input, 'preferredRetailerIds'),
     excludedRetailerIds: optionalStringArray(input, 'excludedRetailerIds'),
+    destination: destination ? { country: requiredString(destination, 'country'), region: optionalString(destination, 'region') } : undefined,
   }
 }
 

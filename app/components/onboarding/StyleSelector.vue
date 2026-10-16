@@ -14,31 +14,31 @@ function toggle(style: StyleId) {
 
 <template>
   <fieldset>
-    <div class="mb-4 flex items-end justify-between gap-4">
+    <div class="flex items-start justify-between gap-4">
       <div>
-        <legend class="text-sm font-medium text-thread-ink">Choose {{ MIN_PROFILE_STYLES }}–{{ MAX_PROFILE_STYLES }} styles.</legend>
-        <p id="style-selection-help" class="mt-1 text-xs leading-5 text-thread-muted">Start with your strongest references; you can broaden them over time.</p>
+        <legend class="text-[15px] font-semibold">Style</legend>
+        <p id="style-selection-help" class="mt-0.5 text-[13px] text-thread-muted">Pick {{ MIN_PROFILE_STYLES }} to {{ MAX_PROFILE_STYLES }} that feel most like you.</p>
       </div>
-      <span class="text-xs tabular-nums" :class="modelValue.length >= MIN_PROFILE_STYLES ? 'text-thread-muted' : 'text-thread-accent'">{{ modelValue.length }} / {{ MAX_PROFILE_STYLES }}</span>
+      <span class="mt-0.5 text-[13px] font-medium tabular-nums" :class="modelValue.length >= MIN_PROFILE_STYLES ? 'text-thread-ink' : 'text-thread-muted'">{{ modelValue.length }}/{{ MAX_PROFILE_STYLES }}</span>
     </div>
-    <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5" aria-describedby="style-selection-help">
+    <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3" aria-describedby="style-selection-help">
       <button
         v-for="style in STYLE_OPTIONS"
         :key="style.id"
         type="button"
-        class="group relative min-h-24 cursor-pointer rounded-2xl border p-3.5 text-left transition duration-200"
+        class="group relative min-h-[72px] cursor-pointer rounded-2xl p-3.5 text-left transition duration-200 disabled:cursor-not-allowed disabled:opacity-40"
         :class="modelValue.includes(style.id)
-          ? 'border-thread-ink bg-thread-ink text-white'
-          : 'border-thread-line bg-white/55 text-thread-ink hover:border-thread-accent disabled:cursor-not-allowed disabled:opacity-45'"
+          ? 'bg-thread-ink text-thread-on-ink'
+          : 'bg-thread-canvas text-thread-ink shadow-inset-hairline enabled:hover:bg-thread-well'"
         :disabled="modelValue.length >= MAX_PROFILE_STYLES && !modelValue.includes(style.id)"
         :aria-pressed="modelValue.includes(style.id)"
         @click="toggle(style.id)"
       >
-        <span class="block pr-5 text-sm font-medium">{{ style.label }}</span>
-        <span class="mt-2 block text-[11px] leading-4" :class="modelValue.includes(style.id) ? 'text-white/65' : 'text-thread-muted'">
-          {{ style.description }}
+        <span class="block pr-6 text-[14px] font-medium">{{ style.label }}</span>
+        <span class="mt-1 block text-[12px] leading-[1.35]" :class="modelValue.includes(style.id) ? 'text-thread-on-ink/60' : 'text-thread-muted'">{{ style.description }}</span>
+        <span class="absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-full transition" :class="modelValue.includes(style.id) ? 'bg-thread-on-ink text-thread-ink' : 'shadow-control'" aria-hidden="true">
+          <Check v-if="modelValue.includes(style.id)" class="h-3 w-3" :stroke-width="3" />
         </span>
-        <Check v-if="modelValue.includes(style.id)" class="absolute right-3 top-3 h-4 w-4" :stroke-width="1.8" aria-hidden="true" />
       </button>
     </div>
   </fieldset>

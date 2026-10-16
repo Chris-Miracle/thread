@@ -15,7 +15,7 @@ const props = withDefaults(defineProps<{
   width: 720,
   height: 900,
   fallbackLabel: 'Product preview unavailable',
-  fallbackClass: 'flex items-center justify-center bg-thread-soft text-thread-muted',
+  fallbackClass: 'flex items-center justify-center bg-thread-well text-thread-faint',
 })
 
 const failed = ref(false)
@@ -46,7 +46,6 @@ watch(() => props.src, () => {
   >
     <span class="flex flex-col items-center justify-center gap-2 px-3 text-center">
       <ImageIcon class="h-6 w-6" :stroke-width="1.4" aria-hidden="true" />
-      <span class="text-[11px]">Preview unavailable</span>
     </span>
   </div>
 </template>

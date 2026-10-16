@@ -17,6 +17,22 @@ function product(overrides: Partial<Product>): Product {
 }
 
 describe('live product ranking and diversity', () => {
+  it('ranks a named brand above an unbranded dupe for a dressy occasion only', () => {
+    const scoreFor = (rawPrompt: string) => {
+      const harness = makeActions()
+      harness.actions.startShoppingSearch({
+        rawPrompt,
+        constraints: { retailerIds: ['fashion-nova'] },
+        needs: [{ intent: 'perfume', queries: ['eau de parfum'], categories: ['fragrance'] }],
+      })
+      const session = harness.search.value.activeSearch!
+      const branded = product({ name: 'Eau de Parfum', brand: 'Valentino', category: 'fragrance', priceCad: 150 })
+      const unbranded = product({ id: 'product:dupe', name: 'Eau de Parfum', brand: undefined, category: 'fragrance', priceCad: 150 })
+      return scoreCandidate(branded, session) - scoreCandidate(unbranded, session)
+    }
+    expect(scoreFor('perfume for an engagement dinner')).toBeGreaterThan(scoreFor('perfume for everyday wear'))
+  })
+
   it('scores mission, style, budget, availability, and completeness signals', () => {
     const harness = makeActions()
     harness.actions.startShoppingSearch({

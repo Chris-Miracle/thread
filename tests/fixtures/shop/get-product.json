@@ -1,0 +1,156 @@
+{
+  "ucp": {
+    "version": "2026-08-25"
+  },
+  "product": {
+    "id": "gid://shopify/p/3clCjZLI5YB7TSRZyLbyCC",
+    "title": "Gymshark Everyday Seamless Leggings - Black",
+    "description": {
+      "plain": "SOFT, SECOND-SKIN GYM SETS   Once you put Everyday Seamless on, you\u2019ll probably never want to take it off. But that\u2019s a risk we\u2019re willing to take. With soft, lightweight, stretchy seamless fabric that feels like a second skin and subtle"
+    },
+    "media": [
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/2446/8477/files/EverydaySeamlessLeggingsGSBlackB7A3L_BB2J_3950.jpg",
+        "alt_text": "Gymshark Everyday Seamless Leggings - Black"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/2446/8477/files/Seasonal_Ecom_PDP_ProductImage_26491371.jpg",
+        "alt_text": "Gymshark Everyday Seamless Leggings - Black"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/2446/8477/files/EverydaySeamlessLeggingsGSBlackB7A3L_BB2J_3970.jpg",
+        "alt_text": "Gymshark Everyday Seamless Leggings - Black"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/2446/8477/files/EverydaySeamlessLeggingsGSBlackB7A3L_BB2J_3960.jpg",
+        "alt_text": "Gymshark Everyday Seamless Leggings - Black"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/2446/8477/files/EverydaySeamlessLeggingsGSBlackB7A3L_BB2J_3980.jpg",
+        "alt_text": "Gymshark Everyday Seamless Leggings - Black"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/2446/8477/files/EverydaySeamlessLeggingsGSBlackB7A3L_BB2J_3990.jpg",
+        "alt_text": "Gymshark Everyday Seamless Leggings - Black"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/2446/8477/files/EverydaySeamlessLeggingsGSBlackB7A3L_BB2J_4000.jpg",
+        "alt_text": "Gymshark Everyday Seamless Leggings - Black"
+      }
+    ],
+    "options": [
+      {
+        "name": "Size",
+        "values": [
+          {
+            "label": "Extra Small",
+            "available": true,
+            "exists": true
+          },
+          {
+            "label": "Small",
+            "available": true,
+            "exists": true
+          },
+          {
+            "label": "Medium",
+            "available": true,
+            "exists": true
+          },
+          {
+            "label": "Large",
+            "available": true,
+            "exists": true
+          },
+          {
+            "label": "Extra Large",
+            "available": true,
+            "exists": true
+          },
+          {
+            "label": "Extra Extra Large",
+            "available": true,
+            "exists": true
+          },
+          {
+            "label": "Extra Extra Small",
+            "available": true,
+            "exists": true
+          }
+        ]
+      }
+    ],
+    "variants": [
+      {
+        "id": "gid://shopify/ProductVariant/39654668828875",
+        "title": "Gymshark Everyday Seamless Leggings - Black",
+        "description": {
+          "plain": "SOFT, SECOND-SKIN GYM SETS   Once you put Everyday Seamless on, you\u2019ll probably never want to take it off. But that\u2019s a risk we\u2019re willing to take. With soft, lightweight, stretchy seamless fabric that feels like a second skin and subtle"
+        },
+        "url": "https://ca.checkout.gymshark.com/products/gymshark-everyday-seamless-leggings-black-aw23?variant=39654668828875&_gsid=TdvhRt7dieWb&utm_source=shopify&utm_medium=catalog",
+        "price": {
+          "amount": 5000,
+          "currency": "CAD"
+        },
+        "availability": {
+          "available": true
+        },
+        "options": [
+          {
+            "name": "Size",
+            "label": "Medium"
+          }
+        ],
+        "media": [
+          {
+            "type": "image",
+            "url": "https://cdn.shopify.com/s/files/1/2446/8477/files/EverydaySeamlessLeggingsGSBlackB7A3L_BB2J_3950.jpg",
+            "alt_text": "Gymshark Everyday Seamless Leggings - Black"
+          }
+        ],
+        "seller": {
+          "id": "gid://shopify/Shop/24468477",
+          "name": "Gymshark CA",
+          "url": "https://ca.checkout.gymshark.com",
+          "domain": "gymshark-can.myshopify.com"
+        },
+        "checkout_url": "https://ca.checkout.gymshark.com/cart/39654668828875:1?_gsid=TdvhRt7dieWb&utm_source=shopify&utm_medium=catalog&payment=shop_pay",
+        "rating": {
+          "value": 4.6,
+          "scale_min": 1,
+          "scale_max": 5,
+          "count": 142
+        },
+        "condition": [
+          "new"
+        ]
+      }
+    ],
+    "price_range": {
+      "min": {
+        "amount": 5000,
+        "currency": "CAD"
+      },
+      "max": {
+        "amount": 5000,
+        "currency": "CAD"
+      }
+    },
+    "selected": [
+      {
+        "name": "Size",
+        "label": "Medium"
+      }
+    ]
+  },
+  "next": [
+    "Compare effective selections and the featured variant with the user's requirements, even without a warning: selection can relax. Option axes do not prove purchasability; use availability and exists signals when returned, and ask before substituting."
+  ]
+}

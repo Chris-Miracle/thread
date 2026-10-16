@@ -1,7 +1,7 @@
 import { RETAILER_BY_ID } from '~/data/retailers'
 import {
   MAX_PROFILE_STYLES, MIN_PROFILE_STYLES, SHOPPING_DEPARTMENTS, STYLE_OPTIONS,
-  type ShoppingDepartment, type StyleId, type StyleProfile,
+  type ShoppingDepartment, type ShoppingDestination, type StyleId, type StyleProfile,
 } from '~/types/thread'
 
 const departmentIds = new Set<string>(SHOPPING_DEPARTMENTS.map(option => option.id))
@@ -24,6 +24,7 @@ export interface ProfileInput {
   usualBudgetCad?: number
   preferredRetailerIds?: readonly string[]
   excludedRetailerIds?: readonly string[]
+  destination?: Partial<ShoppingDestination> | null
 }
 
 function cleanOptional(value: unknown, max = 80): string | undefined {
@@ -47,6 +48,15 @@ function boundedNumber(value: number | undefined, label: string, minimum: number
     throw new Error(`${label} must be between ${minimum} and ${maximum}.`)
   }
   return Number(value.toFixed(2))
+}
+
+function validateDestination(value: ProfileInput['destination']): ShoppingDestination | undefined {
+  if (!value) return undefined
+  const country = cleanOptional(value.country)?.toUpperCase()
+  if (!country) return undefined
+  if (!/^[A-Z]{2}$/.test(country)) throw new Error('Country must be a two-letter code, such as CA.')
+  const region = cleanOptional(value.region, 40)
+  return region ? { country, region } : { country }
 }
 
 export function validateProfile(input: ProfileInput, requireStyle: boolean): StyleProfile {
@@ -85,6 +95,7 @@ export function validateProfile(input: ProfileInput, requireStyle: boolean): Sty
     usualBudgetCad: input.usualBudgetCad !== undefined ? Number(input.usualBudgetCad.toFixed(2)) : undefined,
     preferredRetailerIds,
     excludedRetailerIds,
+    destination: validateDestination(input.destination),
   }
 }
 
@@ -116,6 +127,9 @@ export function migrateProfile(value: unknown): StyleProfile | null {
       usualBudgetCad: typeof record.usualBudgetCad === 'number' ? record.usualBudgetCad : undefined,
       preferredRetailerIds: Array.isArray(record.preferredRetailerIds) ? record.preferredRetailerIds.filter((item): item is string => typeof item === 'string') : undefined,
       excludedRetailerIds: Array.isArray(record.excludedRetailerIds) ? record.excludedRetailerIds.filter((item): item is string => typeof item === 'string') : undefined,
+      destination: record.destination && typeof record.destination === 'object'
+        ? record.destination as Partial<ShoppingDestination>
+        : undefined,
     }, false)
   } catch {
     return null
@@ -123,9 +137,11 @@ export function migrateProfile(value: unknown): StyleProfile | null {
 }
 
 export function updateProfile(current: StyleProfile, patch: Partial<ProfileInput>): StyleProfile {
+  // Omitted fields arrive as explicit undefined from tool parsers; they must not erase saved preferences.
+  const provided = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)) as Partial<ProfileInput>
   return validateProfile({
     ...current,
-    ...patch,
+    ...provided,
     name: patch.name ?? current.name,
     shoppingDepartment: patch.shoppingDepartment ?? patch.gender ?? current.shoppingDepartment,
     styles: patch.styles ?? current.styles,

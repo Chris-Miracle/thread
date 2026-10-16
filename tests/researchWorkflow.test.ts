@@ -4,7 +4,7 @@ import { canonicalizeProductUrl } from '../app/domain/productIdentity'
 import { claimSearchTargets as claimPlannedTargets, createResearchTargets } from '../app/domain/research/scheduler'
 import { createSearchMission } from '../app/domain/search/mission'
 import type { SearchSession } from '../app/types/thread'
-import { candidateFromFixture, DEFAULT_PROFILE, makeActions, startRestrictedSearch } from './helpers'
+import { candidateFromFixture, claimRetailerTargets, DEFAULT_PROFILE, makeActions, startRestrictedSearch } from './helpers'
 
 const fashionNova = PRODUCTS.find(product => product.retailerId === 'fashion-nova' && product.shoppingDepartment === 'women')!
 const shein = PRODUCTS.find(product => product.retailerId === 'shein')!
@@ -73,7 +73,7 @@ describe('research queue lifecycle', () => {
     })
     expect(started.coverage.totalTargets).toBeGreaterThan(20)
     const totalTargets = started.coverage.totalTargets
-    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     const clothesNeed = started.mission.needs.find(need => need.intent === 'three clothes')!
     const fragranceNeed = started.mission.needs.find(need => need.intent === 'perfume')!
     expect(target.needIds).toEqual(expect.arrayContaining([clothesNeed.id, fragranceNeed.id]))
@@ -87,10 +87,15 @@ describe('research queue lifecycle', () => {
         { url: `${base}-trouser`, name: 'Relaxed trousers', image: `${base}-trouser.jpg`, category: 'bottoms', shoppingDepartment: 'men', priceCad: 40, needIds: [clothesNeed.id] },
         { url: `${base}-polo`, name: 'Knit polo', image: `${base}-polo.jpg`, category: 'tops', shoppingDepartment: 'men', priceCad: 40, needIds: [clothesNeed.id] },
         { url: `${base}-fragrance`, name: 'Weekend fragrance', image: `${base}-fragrance.jpg`, category: 'fragrance', shoppingDepartment: 'men', priceCad: 50, needIds: [fragranceNeed.id] },
+        // Alternatives give each need real depth; they cost more, so the optimal basket stays the same.
+        { url: `${base}-overshirt`, name: 'Cotton overshirt', image: `${base}-overshirt.jpg`, category: 'tops', shoppingDepartment: 'men', priceCad: 55, needIds: [clothesNeed.id] },
+        { url: `${base}-chino`, name: 'Pleated chino', image: `${base}-chino.jpg`, category: 'bottoms', shoppingDepartment: 'men', priceCad: 58, needIds: [clothesNeed.id] },
+        { url: `${base}-cologne`, name: 'Cedar cologne', image: `${base}-cologne.jpg`, category: 'fragrance', shoppingDepartment: 'men', priceCad: 65, needIds: [fragranceNeed.id] },
+        { url: `${base}-parfum`, name: 'Amber parfum', image: `${base}-parfum.jpg`, category: 'fragrance', shoppingDepartment: 'men', priceCad: 70, needIds: [fragranceNeed.id] },
       ],
     })
     expect(result.rejected).toEqual([])
-    expect(result.accepted).toHaveLength(4)
+    expect(result.accepted).toHaveLength(8)
     const completed = harness.actions.completeSearchTarget({
       searchId: started.searchId,
       targetId: target.id,
@@ -98,33 +103,36 @@ describe('research queue lifecycle', () => {
       note: 'Observed four grounded products.',
     })
     expect(completed.searchStatus).toBe('satisfied')
-    expect(completed.coverage).toMatchObject({ totalTargets, completedTargets: 1, skippedTargets: totalTargets - 1, unresolvedTargets: 0 })
+    // Both Shop catalogue targets resolved as no-results first; every other untouched target is skipped.
+    expect(completed.coverage).toMatchObject({ totalTargets, completedTargets: 1, noResultTargets: 2, skippedTargets: totalTargets - 3, unresolvedTargets: 0 })
     expect(completed.fulfillment).toMatchObject({ satisfied: true, subtotalCad: 170, overallBudgetCad: 170 })
   })
 
   it('creates ranked queued targets and claims bounded batches', () => {
     const harness = makeActions()
     const started = startRestrictedSearch(harness, ['fashion-nova', 'shein'])
-    expect(started.coverage.queuedTargets).toBe(2)
-    const claim = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1, workerId: 'worker-a' })
+    // One Shop catalogue target for the single need, plus the two restricted retailers.
+    expect(started.coverage.queuedTargets).toBe(3)
+    const claim = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1, workerId: 'worker-a' })
     expect(claim.targets).toHaveLength(1)
     expect(claim.targets[0]).toMatchObject({ status: 'claimed', claimedBy: 'worker-a' })
     expect(claim.coverage).toMatchObject({ queuedTargets: 1, claimedTargets: 1 })
-    expect(() => harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 })).toThrow('Resolve the 1 claimed')
+    expect(() => claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 })).toThrow('Resolve the 1 claimed')
   })
 
   it('never claims more than four targets and returns the next ranked queue slice', () => {
     const harness = makeActions()
     const started = harness.actions.startShoppingSearch({ rawPrompt: 'vacation in Cancun' })
-    expect(() => harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 5 })).toThrow('between 1 and 4')
-    const claimed = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 4 })
-    expect(claimed.targets.map(target => target.rank)).toEqual([1, 2, 3, 4])
+    expect(() => claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 5 })).toThrow('between 1 and 4')
+    const catalogTargets = started.mission.needs.length
+    const claimed = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 4 })
+    expect(claimed.targets.map(target => target.rank)).toEqual([1, 2, 3, 4].map(rank => rank + catalogTargets))
   })
 
   it('requires semantic zero-result and failure states', () => {
     const harness = makeActions()
     const started = startRestrictedSearch(harness, ['fashion-nova', 'shein'])
-    const claimed = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 2 })
+    const claimed = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 2 })
     expect(() => harness.actions.completeSearchTarget({
       searchId: started.searchId,
       targetId: claimed.targets[0]!.id,
@@ -155,7 +163,7 @@ describe('research queue lifecycle', () => {
   it('moves claimed targets to exploring on first publication', () => {
     const harness = makeActions()
     const started = startRestrictedSearch(harness, ['fashion-nova', 'shein'])
-    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     harness.actions.publishCandidates({
       searchId: started.searchId,
       targetId: target.id,
@@ -178,7 +186,7 @@ describe('candidate integrity and hard constraints', () => {
   it('preserves the active mission and archives it only after an explicit terminal action', () => {
     const harness = makeActions()
     const first = startRestrictedSearch(harness, ['fashion-nova'])
-    harness.actions.claimSearchTargets({ searchId: first.searchId, limit: 1 })
+    claimRetailerTargets(harness.actions, { searchId: first.searchId, limit: 1 })
     expect(() => startRestrictedSearch(harness, ['shein'])).toThrow('already active')
     harness.actions.cancelSearch(first.searchId, 'Moving to a different mission.')
     const second = startRestrictedSearch(harness, ['shein'])
@@ -194,7 +202,7 @@ describe('candidate integrity and hard constraints', () => {
   it('rejects a target/domain mismatch and discovery/search URLs', () => {
     const harness = makeActions()
     const started = startRestrictedSearch(harness, ['fashion-nova'])
-    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     const mismatch = harness.actions.publishCandidates({
       searchId: started.searchId,
       targetId: target.id,
@@ -212,7 +220,7 @@ describe('candidate integrity and hard constraints', () => {
   it('derives canonical retailer identity and canonical product identity', () => {
     const harness = makeActions()
     const started = startRestrictedSearch(harness, ['fashion-nova'])
-    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     const input = {
       ...candidateFromFixture(fashionNova),
       retailer: 'A fake submitted store',
@@ -228,7 +236,7 @@ describe('candidate integrity and hard constraints', () => {
   it('upserts duplicate canonical URLs without duplicating the registry', () => {
     const harness = makeActions()
     const started = startRestrictedSearch(harness, ['fashion-nova'])
-    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     harness.actions.publishCandidates({ searchId: started.searchId, targetId: target.id, candidates: [candidateFromFixture(fashionNova)] })
     harness.actions.publishCandidates({
       searchId: started.searchId,
@@ -237,7 +245,7 @@ describe('candidate integrity and hard constraints', () => {
     })
     expect(harness.search.value.activeSearch?.products).toHaveLength(1)
     expect(harness.search.value.activeSearch?.products[0]?.name).toBe('Updated listing title')
-    expect(harness.search.value.activeSearch?.targets[0]?.productCount).toBe(1)
+    expect(harness.search.value.activeSearch?.targets.find(item => item.id === target.id)?.productCount).toBe(1)
   })
 
   it('enforces hard budget, department, and category constraints', () => {
@@ -246,7 +254,7 @@ describe('candidate integrity and hard constraints', () => {
       rawPrompt: 'Find dinner clothes under $40 CAD',
       constraints: { maxPriceCad: 40, retailerIds: ['fashion-nova'] },
     })
-    const budgetTarget = budgetHarness.actions.claimSearchTargets({ searchId: budgetSearch.searchId, limit: 1 }).targets[0]!
+    const budgetTarget = claimRetailerTargets(budgetHarness.actions, { searchId: budgetSearch.searchId, limit: 1 }).targets[0]!
     const overBudget = budgetHarness.actions.publishCandidates({
       searchId: budgetSearch.searchId,
       targetId: budgetTarget.id,
@@ -256,7 +264,7 @@ describe('candidate integrity and hard constraints', () => {
 
     const departmentHarness = makeActions()
     const departmentSearch = startRestrictedSearch(departmentHarness, ['fashion-nova'])
-    const departmentTarget = departmentHarness.actions.claimSearchTargets({ searchId: departmentSearch.searchId, limit: 1 }).targets[0]!
+    const departmentTarget = claimRetailerTargets(departmentHarness.actions, { searchId: departmentSearch.searchId, limit: 1 }).targets[0]!
     const wrongDepartment = departmentHarness.actions.publishCandidates({
       searchId: departmentSearch.searchId,
       targetId: departmentTarget.id,
@@ -269,7 +277,7 @@ describe('candidate integrity and hard constraints', () => {
       rawPrompt: 'Find a black shirt under $70 CAD',
       constraints: { retailerIds: ['fashion-nova'] },
     })
-    const categoryTarget = categoryHarness.actions.claimSearchTargets({ searchId: categorySearch.searchId, limit: 1 }).targets[0]!
+    const categoryTarget = claimRetailerTargets(categoryHarness.actions, { searchId: categorySearch.searchId, limit: 1 }).targets[0]!
     const wrongCategory = categoryHarness.actions.publishCandidates({
       searchId: categorySearch.searchId,
       targetId: categoryTarget.id,
@@ -281,7 +289,7 @@ describe('candidate integrity and hard constraints', () => {
   it('requires verified CAD normalization for non-CAD listings', () => {
     const harness = makeActions()
     const started = startRestrictedSearch(harness, ['fashion-nova'])
-    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     const unsupported = harness.actions.publishCandidates({
       searchId: started.searchId,
       targetId: target.id,
@@ -303,7 +311,7 @@ describe('candidate integrity and hard constraints', () => {
       shoppingDepartment: 'all',
       constraints: { retailerIds: ['uniqlo'] },
     })
-    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     const candidate = harness.actions.publishCandidates({
       searchId: started.searchId,
       targetId: target.id,

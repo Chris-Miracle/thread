@@ -21,7 +21,8 @@ describe('SearchMission', () => {
     const mission = createSearchMission({ rawPrompt: 'Find me a black shirt under $70 CAD.' }, DEFAULT_PROFILE)
     expect(mission.constraints.maxPriceCad).toBe(70)
     expect(mission.constraints.categories).toEqual(['tops'])
-    expect(mission.needs[0]?.queries[0]).toBe('a black shirt under $70 CAD.')
+    expect(mission.needs[0]).toMatchObject({ intent: 'black shirt', quantity: 1, categories: ['tops'] })
+    expect(mission.needs[0]?.queries[0]).toBe('black shirt')
   })
 
   it('preserves structured agent-supplied needs instead of replacing them', () => {

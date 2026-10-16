@@ -8,7 +8,7 @@ export function claimSearchTargetsTool(actions: ThreadActions): WebMCPToolDefini
   return {
     name: 'claim_search_targets',
     title: 'Claim retailer research targets',
-    description: 'Claim a bounded batch of queued retailer targets, dynamically reprioritized around required mission needs that are still unfulfilled. Open the returned need-specific search URLs, publish listing-page candidates, then resolve each target before claiming more.',
+    description: 'Claim a bounded batch of queued research targets, dynamically reprioritized around required mission needs that are still unfulfilled. Shop catalogue targets (sourceType "catalog") come first: call Rove search_shop_catalog for each requestIndex; the built-in anonymous HTTP connection needs no agent installation. Inspect real results and publish with shop provenance. Zero matches are no-results; actual connection failures are failed with the returned reason. Do not infer unavailability from missing agent tools. For retailer and discovery targets, open the returned need-specific search URLs and publish listing-page candidates. Resolve each target before claiming more.',
     inputSchema: {
       type: 'object',
       properties: {

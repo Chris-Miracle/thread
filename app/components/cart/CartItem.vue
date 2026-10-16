@@ -1,25 +1,33 @@
 <script setup lang="ts">
-import { ExternalLink, Trash2 } from 'lucide-vue-next'
+import { ArrowUpRight } from 'lucide-vue-next'
+import { directCheckoutUrl } from '~/domain/cart/checkoutPlan'
 import type { CartItem } from '~/types/thread'
 import { formatMoney } from '~/utils/money'
+import { productLink } from '~/utils/productLinks'
 
-defineProps<{ item: CartItem }>()
+const props = withDefaults(defineProps<{ item: CartItem; showLink?: boolean }>(), { showLink: true })
 const emit = defineEmits<{ remove: [] }>()
+const checkoutUrl = computed(() => directCheckoutUrl(props.item))
+const options = computed(() => props.item.selectedOptions?.map(option => option.label).join(' · ') || [props.item.color, props.item.size].filter(Boolean).join(' · '))
 </script>
 
 <template>
-  <article class="grid grid-cols-[80px_1fr_auto] gap-3 border-b border-thread-line py-4">
-    <ProductImage :src="item.product.image" :alt="item.product.name" :width="160" :height="200" class="h-24 w-20 bg-thread-soft object-cover" fallback-class="flex h-24 w-20 items-center justify-center bg-thread-soft text-thread-muted" :fallback-label="`Product preview unavailable for ${item.product.name}`" />
-    <div class="min-w-0 py-0.5">
-      <h4 class="text-sm font-medium leading-5">{{ item.product.name }}</h4>
-      <p v-if="item.color || item.size" class="mt-1 text-xs text-thread-muted">
-        {{ [item.color, item.size].filter(Boolean).join(' / ') }}
-      </p>
-      <p class="mt-3 text-sm tabular-nums">{{ item.product.priceCad !== undefined ? formatMoney(item.product.priceCad, 'CAD') : 'Price unverified' }}</p>
-      <a :href="item.product.url" target="_blank" rel="noopener noreferrer" class="mt-2 inline-flex min-h-8 items-center gap-1 text-[11px] font-medium underline decoration-thread-line underline-offset-4">Buy at {{ item.product.retailer }} <ExternalLink class="h-3 w-3" aria-hidden="true" /></a>
+  <article class="flex gap-4 py-4">
+    <ProductImage :src="item.product.image" :alt="item.product.name" :width="160" :height="200" class="h-[90px] w-[72px] shrink-0 rounded-xl bg-thread-well object-cover" fallback-class="flex h-[90px] w-[72px] shrink-0 items-center justify-center rounded-xl bg-thread-well text-thread-faint" :fallback-label="`Product preview unavailable for ${item.product.name}`" />
+    <div class="flex min-w-0 flex-1 flex-col">
+      <div class="flex items-start justify-between gap-3">
+        <h4 class="line-clamp-2 text-[14px] font-medium leading-[1.35]">{{ item.product.name }}</h4>
+        <p class="shrink-0 text-[14px] tabular-nums" :class="item.product.priceCad === undefined ? 'text-thread-muted' : ''">{{ item.product.priceCad !== undefined ? formatMoney(item.product.priceCad, 'CAD') : '—' }}</p>
+      </div>
+      <p v-if="options" class="mt-0.5 truncate text-[12px] text-thread-muted">{{ options }}</p>
+      <div class="mt-auto flex items-center gap-1 pt-2.5">
+        <a v-if="showLink" :href="checkoutUrl || productLink(item.product)" target="_blank" rel="noopener noreferrer" class="-ml-0.5 inline-flex h-8 min-w-0 items-center gap-1.5 rounded-full bg-thread-fill pr-2.5 text-[12px] font-medium transition hover:bg-thread-fill-strong" :class="checkoutUrl ? 'pl-1.5' : 'pl-3'">
+          <ShopMark v-if="checkoutUrl" :size="18" />
+          <span class="truncate">{{ checkoutUrl ? 'Continue to checkout' : `Buy at ${item.product.retailer}` }}</span>
+          <ArrowUpRight class="h-3.5 w-3.5 shrink-0 text-thread-muted" :stroke-width="2" aria-hidden="true" />
+        </a>
+        <button type="button" class="ml-auto h-8 shrink-0 cursor-pointer rounded-full px-2.5 text-[12px] text-thread-muted transition hover:bg-thread-danger/10 hover:text-thread-danger" :aria-label="`Remove ${item.product.name} from Your Thread`" @click="emit('remove')">Remove</button>
+      </div>
     </div>
-    <button type="button" class="flex h-11 w-11 cursor-pointer items-center justify-center text-thread-muted transition hover:text-thread-danger" :aria-label="`Remove ${item.product.name} from cart`" @click="emit('remove')">
-      <Trash2 class="h-4 w-4" :stroke-width="1.7" aria-hidden="true" />
-    </button>
   </article>
 </template>

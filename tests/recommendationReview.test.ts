@@ -4,7 +4,7 @@ import { productFreshnessKey } from '../app/domain/productIdentity'
 import { RECOMMENDATION_REVIEW_WINDOW_MS } from '../app/domain/threadActions'
 import { RESEARCH_HISTORY_STORAGE_KEY } from '../app/utils/storage'
 import { emptySearchState } from '../app/types/thread'
-import { candidateFromFixture, makeActions, makeStorage } from './helpers'
+import { candidateFromFixture, claimRetailerTargets, makeActions, makeStorage } from './helpers'
 
 const fashionNovaProducts = PRODUCTS.filter(product => product.retailerId === 'fashion-nova' && product.shoppingDepartment === 'women')
 
@@ -16,7 +16,7 @@ function finishMission(quantity = 2) {
     needs: [{ intent: 'vacation dresses', queries: ['vacation dress'], categories: ['dresses'], quantity, budgetCad: 140 }],
     constraints: { retailerIds: ['fashion-nova'], overallBudgetCad: 140 },
   })
-  const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+  const target = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
   const published = harness.actions.publishCandidates({
     searchId: started.searchId,
     targetId: target.id,
@@ -41,6 +41,46 @@ function finishMission(quantity = 2) {
 }
 
 describe('timed recommendation review and fresh reruns', () => {
+  it('keeps products from a cancelled mission in front of the person as a timed review', () => {
+    const harness = makeActions()
+    const started = harness.actions.startShoppingSearch({
+      rawPrompt: 'Find fresh vacation dresses under CAD 140.',
+      shoppingDepartment: 'women',
+      needs: [{ intent: 'vacation dresses', queries: ['vacation dress'], categories: ['dresses'], quantity: 2, budgetCad: 140 }],
+      constraints: { retailerIds: ['fashion-nova'], overallBudgetCad: 140 },
+    })
+    const target = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
+    const published = harness.actions.publishCandidates({
+      searchId: started.searchId,
+      targetId: target.id,
+      candidates: fashionNovaProducts.slice(0, 2).map(candidateFromFixture),
+    })
+    const cancelled = harness.actions.cancelSearch(started.searchId, 'Enough options for now.')
+    expect(cancelled).toMatchObject({ status: 'cancelled', nextAction: 'review_recommendations', recommendationReview: { status: 'pending' } })
+    expect(cancelled.recommendationReview?.productIds).toEqual(expect.arrayContaining(published.accepted.map(product => product.id)))
+    expect(harness.search.value.activeSearch?.recommendationReview?.status).toBe('pending')
+
+    harness.actions.reviewRecommendations({ searchId: started.searchId, decision: 'accept-all' })
+    expect(harness.actions.getResearchHistory().entries[0]).toMatchObject({ searchId: started.searchId })
+
+    // Kept pieces can still be verified so they can be added to the Thread; nothing else in the stopped mission can.
+    const kept = cancelled.recommendationReview!.productIds[0]!
+    expect(harness.actions.enrichProduct(started.searchId, { productId: kept, availability: 'in-stock' }).stage).toBe('enriched')
+    const notKept = harness.search.value.activeSearch!.products.find(product => !cancelled.recommendationReview!.productIds.includes(product.id))
+    if (notKept) expect(() => harness.actions.enrichProduct(started.searchId, { productId: notKept.id, availability: 'in-stock' })).toThrow('only products kept')
+  })
+
+  it('does not open an empty review when a mission is cancelled before any product was accepted', () => {
+    const harness = makeActions()
+    const started = harness.actions.startShoppingSearch({
+      rawPrompt: 'Find fresh vacation dresses under CAD 140.',
+      shoppingDepartment: 'women',
+      constraints: { retailerIds: ['fashion-nova'] },
+    })
+    const cancelled = harness.actions.cancelSearch(started.searchId, 'Changed plans.', 'abandoned')
+    expect(cancelled).toMatchObject({ status: 'abandoned', recommendationReview: null, nextAction: 'get_products' })
+  })
+
   it('opens a two-minute review after research completes', () => {
     const { harness, started, products } = finishMission()
     const status = harness.actions.getSearchStatus(started.searchId)
@@ -81,7 +121,7 @@ describe('timed recommendation review and fresh reruns', () => {
       needs: [{ intent: 'vacation dress', queries: ['vacation dress'], categories: ['dresses'] }],
       constraints: { retailerIds: ['fashion-nova'] },
     })
-    const target = first.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(first.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     first.actions.publishCandidates({
       searchId: started.searchId,
       targetId: target.id,
@@ -104,7 +144,7 @@ describe('timed recommendation review and fresh reruns', () => {
       needs: [{ intent: 'vacation dresses', queries: ['vacation dress'], categories: ['dresses'], quantity: 2 }],
       constraints: { retailerIds: ['fashion-nova'] },
     })
-    const target = first.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(first.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     const published = first.actions.publishCandidates({
       searchId: started.searchId,
       targetId: target.id,
@@ -145,7 +185,7 @@ describe('timed recommendation review and fresh reruns', () => {
 
     const replacementId = reviewed.replacement.searchId
     expect(harness.actions.getProducts({ searchId: replacementId }).products.map(product => product.id)).toEqual([liked.id])
-    const target = harness.actions.claimSearchTargets({ searchId: replacementId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(harness.actions, { searchId: replacementId, limit: 1 }).targets[0]!
     const duplicate = harness.actions.publishCandidates({
       searchId: replacementId,
       targetId: target.id,
@@ -217,7 +257,7 @@ describe('timed recommendation review and fresh reruns', () => {
       needs: [{ intent: 'summer dinner dress', queries: ['summer dinner dress'], categories: ['dresses'] }],
       constraints: { retailerIds: ['fashion-nova'] },
     })
-    const target = harness.actions.claimSearchTargets({ searchId: next.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(harness.actions, { searchId: next.searchId, limit: 1 }).targets[0]!
     const duplicate = harness.actions.publishCandidates({
       searchId: next.searchId,
       targetId: target.id,

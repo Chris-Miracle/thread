@@ -1,0 +1,125 @@
+{
+  "requested": [
+    {
+      "name": "Product options",
+      "label": "3ml - (Roll On Perfume Oil)"
+    }
+  ],
+  "search": {
+    "id": "gid://shopify/p/1d3E0Ejzp2HOxCVOGeuJqX",
+    "title": "Stellarius Luxe For Men - 0634",
+    "media": [
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/0769/1737/5254/files/batch_3ml_roll_on_3_39769532-9099-46b3-b252-cd46a554eb88.webp",
+        "alt_text": "Stellarius Luxe For Men - 0634"
+      }
+    ],
+    "variants": [
+      {
+        "id": "gid://shopify/ProductVariant/46848798392598",
+        "options": [
+          {
+            "name": "Product options",
+            "label": "3ml - (Roll On Perfume Oil)"
+          }
+        ],
+        "price": {
+          "amount": 800,
+          "currency": "CAD"
+        },
+        "availability": {
+          "available": true
+        },
+        "url": "https://perfume-parlour.co.uk/products/stellarius-luxe-for-men-0634?variant=46848798392598&_gsid=9N11sMsbnmXg&utm_source=shopify&utm_medium=catalog",
+        "seller": {
+          "id": "gid://shopify/Shop/76917375254",
+          "name": "Perfume Parlour UK",
+          "url": "https://perfume-parlour.co.uk",
+          "domain": "perfumeparlouruk.myshopify.com"
+        }
+      }
+    ]
+  },
+  "detail": {
+    "id": "gid://shopify/p/1d3E0Ejzp2HOxCVOGeuJqX",
+    "title": "Stellarius Luxe For Men - 0634",
+    "media": [
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/0769/1737/5254/files/batch_ChatGPT_Image_May_1_2026_12_50_30_PM_c3673539-d8b6-4a62-8eb0-c9eee0776a6e.webp",
+        "alt_text": "Stellarius Luxe For Men - 0634"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/0769/1737/5254/files/Stellarius-Luxe-For-Men---0634.webp",
+        "alt_text": "Stellarius Luxe For Men - 0634"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/0769/1737/5254/files/Cover_5e5b6fd0-fd6e-4f76-8ff8-17ed9a9642be.png",
+        "alt_text": "Cool Carica 0256 - Perfume Parlour"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/0769/1737/5254/files/Bath_Body_200ml_Hand_Body_Wash_1ce2bba8-3dc7-42ea-bf4b-8857528424d9.png",
+        "alt_text": "Cool Carica 0256 - Perfume Parlour"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/0769/1737/5254/files/Bath_Body_200ml_Hand_Body_Lotion_b708b957-4336-486e-8142-5192e8f4aaa7.png",
+        "alt_text": "Cool Carica 0256 - Perfume Parlour"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/0769/1737/5254/files/EDP_Tester_2ml_78c21bb6-8c5f-40f2-9db5-73fb1fb8786c.png",
+        "alt_text": "Cool Carica 0256 - Perfume Parlour"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/0769/1737/5254/files/EDP_Sprays_13ml_55e3d8a1-67e4-42bc-9a9f-f29bad1371a2.png",
+        "alt_text": "Cool Carica 0256 - Perfume Parlour"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/0769/1737/5254/files/EDP_Sprays_30ml_534a5240-f313-4e42-8513-f520a81c8088.png",
+        "alt_text": "Cool Carica 0256 - Perfume Parlour"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/0769/1737/5254/files/EDP_Sprays_50ml_f8ff1ec6-5a16-44a3-8071-a2ddf3f204a8.png",
+        "alt_text": "Cool Carica 0256 - Perfume Parlour"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.shopify.com/s/files/1/0769/1737/5254/files/Extract_Sprays_15ml_06e5f681-5b47-4478-bb0f-c5d2a8a880f8.png",
+        "alt_text": "Cool Carica 0256 - Perfume Parlour"
+      }
+    ],
+    "variants": [
+      {
+        "id": "gid://shopify/ProductVariant/46848797802774",
+        "options": [
+          {
+            "name": "Product options",
+            "label": "200ml Hand & Body Wash - (Bath & Body)"
+          }
+        ],
+        "price": {
+          "amount": 2300,
+          "currency": "CAD"
+        },
+        "availability": {
+          "available": true
+        },
+        "url": "https://perfume-parlour.co.uk/products/stellarius-luxe-for-men-0634?variant=46848797802774&_gsid=EHUhLDcULGJ8&utm_source=shopify&utm_medium=catalog",
+        "seller": {
+          "id": "gid://shopify/Shop/76917375254",
+          "name": "Perfume Parlour UK",
+          "url": "https://perfume-parlour.co.uk",
+          "domain": "perfumeparlouruk.myshopify.com"
+        }
+      }
+    ]
+  }
+}

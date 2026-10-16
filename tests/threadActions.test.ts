@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PRODUCTS } from '../app/data/products'
 import { CART_STORAGE_KEY, PROFILE_STORAGE_KEY, SEARCH_STORAGE_KEY } from '../app/utils/storage'
-import { candidateFromFixture, makeActions, makeStorage, startRestrictedSearch } from './helpers'
+import { candidateFromFixture, claimRetailerTargets, makeActions, makeStorage, startRestrictedSearch } from './helpers'
 import { STYLE_OPTIONS } from '../app/types/thread'
 
 const fashionNovaProducts = PRODUCTS.filter(product => product.retailerId === 'fashion-nova' && product.shoppingDepartment === 'women')
@@ -92,7 +92,7 @@ describe('search persistence, pagination, cancellation, and telemetry', () => {
     const storage = makeStorage()
     const first = makeActions({ storage })
     const started = startRestrictedSearch(first, ['fashion-nova'])
-    const target = first.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(first.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     first.actions.publishCandidates({
       searchId: started.searchId,
       targetId: target.id,
@@ -107,13 +107,13 @@ describe('search persistence, pagination, cancellation, and telemetry', () => {
       status: 'active',
       products: [{ id: fashionNovaProducts[0]!.id }],
     })
-    expect(second.search.value.activeSearch?.targets[0]?.status).toBe('exploring')
+    expect(second.search.value.activeSearch?.targets.find(item => item.id === target.id)?.status).toBe('exploring')
   })
 
   it('supports cursor pagination beyond a small first slice', () => {
     const harness = makeActions()
     const started = startRestrictedSearch(harness, ['fashion-nova', 'shein'])
-    const targets = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 2 }).targets
+    const targets = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 2 }).targets
     for (const target of targets) {
       const products = target.retailerId === 'fashion-nova' ? fashionNovaProducts : sheinProducts
       harness.actions.publishCandidates({
@@ -133,7 +133,7 @@ describe('search persistence, pagination, cancellation, and telemetry', () => {
   it('cancels unresolved targets while preserving accepted products', () => {
     const harness = makeActions()
     const started = startRestrictedSearch(harness, ['fashion-nova', 'shein'])
-    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     const fixture = target.retailerId === 'fashion-nova' ? fashionNovaProducts[0]! : sheinProducts[0]!
     harness.actions.publishCandidates({ searchId: started.searchId, targetId: target.id, candidates: [candidateFromFixture(fixture)] })
     const cancelled = harness.actions.cancelSearch(started.searchId, 'User changed plans.')
@@ -152,7 +152,7 @@ describe('search persistence, pagination, cancellation, and telemetry', () => {
   it('records a bounded local execution trace with acceptance and failure reasons', () => {
     const harness = makeActions()
     const started = startRestrictedSearch(harness, ['fashion-nova'])
-    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     harness.actions.publishCandidates({
       searchId: started.searchId,
       targetId: target.id,
@@ -183,7 +183,7 @@ describe('variant-stable cross-store cart', () => {
       rawPrompt: 'Find a UNIQLO shirt',
       constraints: { retailerIds: ['uniqlo'] },
     })
-    const target = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 1 }).targets[0]!
+    const target = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 1 }).targets[0]!
     const candidate = harness.actions.publishCandidates({
       searchId: started.searchId,
       targetId: target.id,
@@ -281,7 +281,7 @@ describe('complete shared human-agent workflow', () => {
       rawPrompt: 'Get my clothes for vacation in Cancun under $180 CAD',
       constraints: { maxPriceCad: 180, retailerIds: ['fashion-nova', 'shein', 'uniqlo'] },
     })
-    const targets = harness.actions.claimSearchTargets({ searchId: started.searchId, limit: 3, workerId: 'integration' }).targets
+    const targets = claimRetailerTargets(harness.actions, { searchId: started.searchId, limit: 3, workerId: 'integration' }).targets
     expect(targets).toHaveLength(3)
     for (const target of targets) {
       const fixture = target.retailerId === 'fashion-nova'

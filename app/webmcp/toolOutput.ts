@@ -18,7 +18,18 @@ export function compactProduct(product: Product) {
     sizes: product.sizes,
     colors: product.colors,
     availability: product.availability,
+    variants: product.variants,
     observedAt: product.observedAt,
+    shop: product.commerce
+      ? {
+          productId: product.commerce.productId,
+          variantId: product.commerce.variantId,
+          sellerDomain: product.commerce.sellerDomain,
+          url: product.commerce.url,
+          selectedOptions: product.commerce.selectedOptions,
+          checkoutUrl: product.commerce.checkoutUrl,
+        }
+      : undefined,
   }
 }
 
@@ -34,8 +45,11 @@ export function compactCart(cart: CartSummary) {
       priceCad: item.product.priceCad,
       size: item.size,
       color: item.color,
-      url: item.product.url,
+      variantId: item.variantId,
+      selectedOptions: item.selectedOptions,
+      url: item.product.commerce?.url ?? item.product.url,
     })),
     unpricedItemCount: cart.unpricedItemCount,
+    groups: cart.groups.map(group => ({ key: group.key, sellerName: group.sellerName, status: group.status, continueUrl: group.merchantCart?.continueUrl })),
   }
 }

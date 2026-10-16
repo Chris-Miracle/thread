@@ -1,15 +1,25 @@
+import { resolveStoreTool } from '~/webmcp/tools/resolveStore'
+import { searchShopCatalogTool } from '~/webmcp/tools/searchShopCatalog'
+import { inspectShopProductTool } from '~/webmcp/tools/inspectShopProduct'
 import type { createThreadActions } from '~/domain/threadActions'
+import { addInspirationTool } from '~/webmcp/tools/addInspiration'
 import { addToCartTool } from '~/webmcp/tools/addToCart'
+import { attachMerchantCartTool } from '~/webmcp/tools/attachMerchantCart'
+import { cartProposedBasketTool } from '~/webmcp/tools/cartProposedBasket'
 import { cancelSearchTool } from '~/webmcp/tools/cancelSearch'
 import { claimSearchTargetsTool } from '~/webmcp/tools/claimSearchTargets'
 import { completeSearchTargetTool } from '~/webmcp/tools/completeSearchTarget'
 import { enrichProductTool } from '~/webmcp/tools/enrichProduct'
+import { findSimilarTool } from '~/webmcp/tools/findSimilar'
 import { getCartTool } from '~/webmcp/tools/getCart'
+import { getCheckoutPlanTool } from '~/webmcp/tools/getCheckoutPlan'
+import { getInspirationTool } from '~/webmcp/tools/getInspiration'
 import { getProductsTool } from '~/webmcp/tools/getProducts'
 import { getProfileTool } from '~/webmcp/tools/getProfile'
 import { getResearchHistoryTool } from '~/webmcp/tools/getResearchHistory'
 import { getSearchStatusTool } from '~/webmcp/tools/getSearchStatus'
 import { publishCandidatesTool } from '~/webmcp/tools/publishCandidates'
+import { recordPurchasesTool } from '~/webmcp/tools/recordPurchases'
 import { removeFromCartTool } from '~/webmcp/tools/removeFromCart'
 import { researchAgainTool } from '~/webmcp/tools/researchAgain'
 import { reviewRecommendationsTool } from '~/webmcp/tools/reviewRecommendations'
@@ -25,6 +35,9 @@ export const THREAD_TOOL_NAMES = [
   'update_profile',
   'start_shopping_search',
   'claim_search_targets',
+  'search_shop_catalog',
+  'inspect_shop_product',
+  'resolve_store',
   'publish_candidates',
   'enrich_product',
   'complete_search_target',
@@ -37,6 +50,13 @@ export const THREAD_TOOL_NAMES = [
   'get_cart',
   'add_to_cart',
   'remove_from_cart',
+  'get_checkout_plan',
+  'attach_merchant_cart',
+  'add_inspiration',
+  'get_inspiration',
+  'find_similar',
+  'record_purchases',
+  'cart_proposed_basket',
 ] as const
 
 type ThreadWindow = Window & { __threadWebMCPController?: AbortController }
@@ -48,6 +68,9 @@ export function createThreadToolDefinitions(actions: ThreadActions) {
     updateProfileTool(actions),
     startShoppingSearchTool(actions),
     claimSearchTargetsTool(actions),
+    searchShopCatalogTool(actions),
+    inspectShopProductTool(actions),
+    resolveStoreTool(actions),
     publishCandidatesTool(actions),
     enrichProductTool(actions),
     completeSearchTargetTool(actions),
@@ -60,6 +83,13 @@ export function createThreadToolDefinitions(actions: ThreadActions) {
     getCartTool(actions),
     addToCartTool(actions),
     removeFromCartTool(actions),
+    getCheckoutPlanTool(actions),
+    attachMerchantCartTool(actions),
+    addInspirationTool(actions),
+    getInspirationTool(actions),
+    findSimilarTool(actions),
+    recordPurchasesTool(actions),
+    cartProposedBasketTool(actions),
   ]
 }
 

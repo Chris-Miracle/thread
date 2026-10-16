@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Archive, CalendarDays, CheckCircle2 } from 'lucide-vue-next'
 import { filterProducts } from '~/domain/productFilters'
 import { emptyResultFilters, type Product, type ResultFilters, type SavedResearchEntry } from '~/types/thread'
 import { formatMoney } from '~/utils/money'
@@ -15,8 +14,12 @@ const filteredProducts = computed(() => selectedEntry.value
   : [])
 const subtotalCad = computed(() => selectedEntry.value?.products.reduce((total, product) => total + (product.priceCad ?? 0), 0) ?? 0)
 const acceptedLabel = computed(() => selectedEntry.value
-  ? new Date(selectedEntry.value.acceptedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+  ? new Date(selectedEntry.value.acceptedAt).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })
   : '')
+
+function shortDate(value: string): string {
+  return new Date(value).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+}
 
 watch(() => props.entries[0]?.searchId, (latestSearchId) => {
   selectedSearchId.value = latestSearchId ?? ''
@@ -32,56 +35,42 @@ watch(selectedSearchId, () => { filters.value = emptyResultFilters() })
 </script>
 
 <template>
-  <section v-if="entries.length" class="mt-16 border-t-2 border-thread-ink pt-8 sm:mt-24 sm:pt-10" aria-labelledby="saved-missions-title">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+  <section v-if="entries.length" class="mt-20 border-t border-thread-line pt-12 sm:mt-28 sm:pt-16" aria-labelledby="saved-missions-title">
+    <div class="flex items-end justify-between gap-4">
       <div>
-        <p class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-green-700">
-          <Archive class="h-4 w-4" aria-hidden="true" /> Saved locally
-        </p>
-        <h2 id="saved-missions-title" class="mt-2 font-editorial text-4xl leading-tight sm:text-5xl">Your mission library</h2>
-        <p class="mt-3 max-w-2xl text-sm leading-6 text-thread-muted">Completed missions are not active research. Their accepted products and retailer links stay here for filtering, comparison, and adding to Your Thread.</p>
+        <h2 id="saved-missions-title" class="rove-headline text-[32px] leading-tight sm:text-[40px]">Library</h2>
+        <p class="mt-1 text-[15px] text-thread-muted">Edits you’ve kept, with every retailer link.</p>
       </div>
-      <p class="text-xs tabular-nums text-thread-muted">{{ entries.length }} saved {{ entries.length === 1 ? 'mission' : 'missions' }}</p>
+      <p class="shrink-0 text-[13px] tabular-nums text-thread-muted">{{ entries.length }} {{ entries.length === 1 ? 'edit' : 'edits' }}</p>
     </div>
 
-    <div class="thread-scrollbar mt-6 flex gap-2 overflow-x-auto pb-2" role="navigation" aria-label="Saved missions">
+    <div class="-mx-4 mt-7 flex gap-3 overflow-x-auto px-4 pb-2 no-scrollbar sm:mx-0 sm:px-0" role="navigation" aria-label="Saved edits">
       <button
         v-for="entry in entries"
         :key="entry.searchId"
         type="button"
-        class="min-h-20 w-72 shrink-0 cursor-pointer rounded-2xl border p-3 text-left transition"
-        :class="entry.searchId === selectedEntry?.searchId ? 'border-thread-ink bg-thread-ink text-white' : 'border-thread-line bg-thread-surface hover:border-thread-ink'"
+        class="flex w-64 shrink-0 cursor-pointer flex-col rounded-[18px] bg-thread-surface p-3.5 text-left transition duration-200"
+        :class="entry.searchId === selectedEntry?.searchId ? 'shadow-selected' : 'shadow-hairline hover:shadow-hairline-strong'"
         :aria-current="entry.searchId === selectedEntry?.searchId ? 'true' : undefined"
         @click="selectedSearchId = entry.searchId"
       >
-        <span class="block truncate text-xs font-medium">{{ entry.prompt }}</span>
-        <span class="mt-2 block text-[11px] opacity-70">{{ entry.products.length }} accepted · {{ new Date(entry.acceptedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) }}</span>
+        <span class="flex gap-1" aria-hidden="true">
+          <ProductImage v-for="product in entry.products.slice(0, 4)" :key="product.id" :src="product.image" alt="" :width="80" :height="100" class="aspect-[4/5] w-10 rounded-lg bg-thread-well object-cover" fallback-class="aspect-[4/5] w-10 rounded-lg bg-thread-well text-transparent" />
+        </span>
+        <span class="mt-3 line-clamp-2 text-[14px] font-medium leading-[1.35]">{{ entry.prompt }}</span>
+        <span class="mt-1 text-[12px] tabular-nums text-thread-muted">{{ entry.products.length }} {{ entry.products.length === 1 ? 'piece' : 'pieces' }} · {{ shortDate(entry.acceptedAt) }}</span>
       </button>
     </div>
 
-    <article v-if="selectedEntry" class="rove-glass-card mt-5 rounded-[2rem] p-5 sm:p-7">
-      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div class="min-w-0">
-          <p class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-green-700">
-            <CheckCircle2 class="h-4 w-4" aria-hidden="true" /> Saved mission · Not running
-          </p>
-          <h3 class="mt-3 max-w-5xl font-editorial text-3xl leading-tight sm:text-4xl">“{{ selectedEntry.prompt }}”</h3>
-        </div>
-        <dl class="grid shrink-0 grid-cols-2 gap-x-6 gap-y-3 border-l border-thread-line pl-5 text-xs">
-          <div>
-            <dt class="text-thread-muted">Accepted</dt>
-            <dd class="mt-1 flex items-center gap-1.5 font-medium"><CalendarDays class="h-3.5 w-3.5" aria-hidden="true" /> {{ acceptedLabel }}</dd>
-          </div>
-          <div>
-            <dt class="text-thread-muted">Saved edit</dt>
-            <dd class="mt-1 font-medium tabular-nums">{{ selectedEntry.products.length }} items · {{ formatMoney(subtotalCad, 'CAD') }}</dd>
-          </div>
-        </dl>
+    <article v-if="selectedEntry" class="mt-10">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <h3 class="rove-headline max-w-4xl text-balance text-[24px] leading-tight sm:text-[28px]">{{ selectedEntry.prompt }}</h3>
+        <p class="shrink-0 text-[13px] tabular-nums text-thread-muted">{{ acceptedLabel }} · {{ selectedEntry.products.length }} {{ selectedEntry.products.length === 1 ? 'piece' : 'pieces' }} · {{ formatMoney(subtotalCad, 'CAD') }}</p>
       </div>
 
-      <ProductFilters v-model="filters" :products="selectedEntry.products" label="Filter saved products" class="mb-7 mt-7" />
+      <ProductFilters v-model="filters" :products="selectedEntry.products" label="Filter saved products" class="mb-8 mt-6" />
       <ProductGrid :products="filteredProducts" @select="emit('select', $event)" @add="emit('add', $event)" />
-      <EmptyState v-if="selectedEntry.products.length && !filteredProducts.length" title="No saved products match these filters." description="Clear one or more filters to see the rest of this saved mission." />
+      <EmptyState v-if="selectedEntry.products.length && !filteredProducts.length" title="No matches" description="Clear a filter to see the rest of this edit." />
     </article>
   </section>
 </template>

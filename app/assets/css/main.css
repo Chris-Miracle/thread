@@ -2,19 +2,101 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Colour tokens. Channels (`r g b`) feed Tailwind's `thread-*` colours with opacity support;
+ * the rest are complete colours or shadows that differ between schemes.
+ *
+ * Light is Starlight: warm champagne paper with warm graphite ink.
+ * Dark is Midnight: blue-black surfaces with cool white ink.
+ * The theme comes from `data-theme` on <html>, set before first paint by the bootstrap
+ * script in nuxt.config.ts and kept current by the appearance plugin.
+ */
 :root {
   color-scheme: light;
   font-synthesis: none;
-  --rove-glass: rgba(255, 255, 255, 0.58);
-  --rove-glass-strong: rgba(251, 248, 250, 0.84);
-  --rove-glass-border: rgba(56, 35, 46, 0.14);
+  text-rendering: optimizeLegibility;
+
+  --rove-canvas: 242 238 231;
+  --rove-surface: 255 253 250;
+  --rove-elevated: 255 255 255;
+  --rove-well: 236 231 223;
+  --rove-ink: 28 26 23;
+  --rove-ink-strong: 0 0 0;
+  --rove-on-ink: 255 253 250;
+  --rove-muted: 107 102 96;
+  --rove-faint: 128 122 114;
+  --rove-line: 224 218 208;
+  --rove-accent: 240 82 24;
+  --rove-accent-ink: 178 60 12;
+  --rove-success: 31 120 72;
+  --rove-danger: 192 40 46;
+  --rove-hud: 28 26 23;
+
+  --rove-fill: rgb(28 26 23 / 0.06);
+  --rove-fill-strong: rgb(28 26 23 / 0.1);
+  --rove-scrim: rgb(20 16 12 / 0.32);
+  --rove-hairline: rgb(28 26 23 / 0.08);
+  --rove-hairline-strong: rgb(28 26 23 / 0.16);
+  --rove-control-ring: rgb(28 26 23 / 0.14);
+  --rove-control-ring-hover: rgb(28 26 23 / 0.42);
+  --rove-shadow-raised: 0 1px 2px rgb(60 40 20 / 0.05), 0 8px 24px rgb(60 40 20 / 0.07);
+  --rove-shadow-sheet: 0 24px 80px rgb(40 28 16 / 0.2), 0 0 0 1px rgb(28 26 23 / 0.05);
+  --rove-selection: #ffd6c2;
+  --rove-scrollbar: #c9c1b4;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --rove-canvas: 13 16 22;
+  --rove-surface: 24 28 36;
+  --rove-elevated: 46 52 63;
+  --rove-well: 32 37 46;
+  --rove-ink: 241 243 246;
+  --rove-ink-strong: 255 255 255;
+  --rove-on-ink: 13 16 22;
+  --rove-muted: 144 151 162;
+  --rove-faint: 118 125 138;
+  --rove-line: 40 46 56;
+  --rove-accent: 255 112 61;
+  --rove-accent-ink: 255 145 102;
+  --rove-success: 52 211 120;
+  --rove-danger: 255 99 89;
+  --rove-hud: 40 46 56;
+
+  --rove-fill: rgb(200 215 235 / 0.08);
+  --rove-fill-strong: rgb(200 215 235 / 0.14);
+  --rove-scrim: rgb(4 6 10 / 0.6);
+  --rove-hairline: rgb(200 215 235 / 0.1);
+  --rove-hairline-strong: rgb(200 215 235 / 0.2);
+  --rove-control-ring: rgb(200 215 235 / 0.16);
+  --rove-control-ring-hover: rgb(200 215 235 / 0.45);
+  --rove-shadow-raised: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px rgb(0 0 0 / 0.45);
+  --rove-shadow-sheet: 0 24px 80px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(200 215 235 / 0.09);
+  --rove-selection: rgb(255 112 61 / 0.38);
+  --rove-scrollbar: #3a414d;
+}
+
+/* Switching themes cross-fades the page once instead of animating every transition at its own pace. */
+.rove-theme-switching,
+.rove-theme-switching *,
+.rove-theme-switching *::before,
+.rove-theme-switching *::after {
+  transition: none !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 360ms;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 html {
   min-width: 320px;
-  background: #f3edf0;
-  color: #251920;
+  background: rgb(var(--rove-canvas));
+  color: rgb(var(--rove-ink));
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -22,76 +104,102 @@ body {
   min-height: 100dvh;
   margin: 0;
   overflow-x: hidden;
-  background:
-    radial-gradient(circle at 10% -5%, rgba(255, 255, 255, 0.92), transparent 34rem),
-    radial-gradient(circle at 92% 8%, rgba(163, 98, 126, 0.17), transparent 32rem),
-    radial-gradient(circle at 54% 105%, rgba(105, 73, 91, 0.10), transparent 38rem),
-    #f3edf0;
-  background-attachment: fixed;
-  font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  background: rgb(var(--rove-canvas));
+  font-family: theme('fontFamily.sans');
+  letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
 input,
 select {
   font: inherit;
+  letter-spacing: inherit;
 }
 
 button,
 a,
 select {
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 :focus-visible {
-  outline: 2px solid #7c3f5b;
-  outline-offset: 3px;
+  outline: 2px solid rgb(var(--rove-accent));
+  outline-offset: 2px;
 }
 
 ::selection {
-  background: #d9bdc9;
-  color: #251920;
+  background: var(--rove-selection);
+  color: rgb(var(--rove-ink));
+}
+
+@layer components {
+  /* The one translucent material: bars that content scrolls beneath. */
+  .rove-bar {
+    background: rgb(var(--rove-canvas) / 0.78);
+    box-shadow: inset 0 -1px 0 var(--rove-hairline);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  .rove-card {
+    @apply rounded-[22px] bg-thread-surface shadow-hairline;
+  }
+
+  .rove-btn {
+    @apply inline-flex min-h-11 cursor-pointer select-none items-center justify-center gap-2 rounded-full px-5 text-[15px] font-medium transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100;
+  }
+
+  .rove-btn-primary {
+    @apply rove-btn bg-thread-ink text-thread-on-ink enabled:hover:bg-thread-ink-strong;
+  }
+
+  a.rove-btn-primary:hover {
+    @apply bg-thread-ink-strong;
+  }
+
+  .rove-btn-secondary {
+    @apply rove-btn bg-thread-fill text-thread-ink enabled:hover:bg-thread-fill-strong;
+  }
+
+  a.rove-btn-secondary:hover {
+    @apply bg-thread-fill-strong;
+  }
+
+  .rove-icon-btn {
+    @apply grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full text-thread-ink transition duration-200 hover:bg-thread-fill active:scale-95;
+  }
+
+  .rove-input {
+    @apply h-12 w-full rounded-xl border-0 bg-thread-canvas px-4 text-[15px] text-thread-ink shadow-inset-hairline transition placeholder:text-thread-faint focus:bg-thread-surface focus:shadow-focus focus:outline-none;
+  }
+
+  .rove-headline {
+    @apply font-display font-semibold tracking-[-0.032em] text-thread-ink;
+  }
 }
 
 .text-balance {
   text-wrap: balance;
 }
 
+.text-pretty {
+  text-wrap: pretty;
+}
+
 .thread-scrollbar {
-  scrollbar-color: #b8a5ae transparent;
+  scrollbar-color: var(--rove-scrollbar) transparent;
   scrollbar-width: thin;
 }
 
-.rove-glass {
-  border-color: var(--rove-glass-border);
-  background: var(--rove-glass);
-  box-shadow: 0 18px 54px rgba(58, 35, 47, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.76);
-  -webkit-backdrop-filter: saturate(165%) blur(22px);
-  backdrop-filter: saturate(165%) blur(22px);
+.no-scrollbar {
+  scrollbar-width: none;
 }
 
-.rove-glass-strong {
-  border-color: var(--rove-glass-border);
-  background: var(--rove-glass-strong);
-  box-shadow: 0 24px 70px rgba(58, 35, 47, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.84);
-  -webkit-backdrop-filter: saturate(170%) blur(28px);
-  backdrop-filter: saturate(170%) blur(28px);
-}
-
-.rove-glass-card {
-  border: 1px solid var(--rove-glass-border);
-  border-color: var(--rove-glass-border);
-  background: rgba(251, 248, 250, 0.76);
-  box-shadow: 0 14px 42px rgba(58, 35, 47, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.72);
-  -webkit-backdrop-filter: saturate(145%) blur(14px);
-  backdrop-filter: saturate(145%) blur(14px);
-}
-
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .rove-glass,
-  .rove-glass-strong,
-  .rove-glass-card { background: #fbf8fa; }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -100,11 +208,5 @@ select {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-  .rove-glass,
-  .rove-glass-strong,
-  .rove-glass-card {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
   }
 }

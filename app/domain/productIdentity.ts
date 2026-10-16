@@ -1,5 +1,5 @@
 const TRACKING_PARAMETERS = new Set([
-  'gclid', 'fbclid', 'msclkid', 'ref', 'ref_', 'source', 'utm_campaign', 'utm_content', 'utm_medium', 'utm_source', 'utm_term',
+  '_gsid', 'gclid', 'fbclid', 'msclkid', 'ref', 'ref_', 'source', 'utm_campaign', 'utm_content', 'utm_medium', 'utm_source', 'utm_term',
 ])
 
 export function canonicalizeProductUrl(value: string): string {
@@ -13,6 +13,13 @@ export function canonicalizeProductUrl(value: string): string {
   url.pathname = url.pathname.replace(/\/+$/, '') || '/'
   url.searchParams.sort()
   return url.toString()
+}
+
+/** Shop variant URLs identify one size/colour; the product page without `variant` is the stable identity. */
+export function canonicalizeShopProductUrl(value: string): string {
+  const canonical = new URL(canonicalizeProductUrl(value))
+  canonical.searchParams.delete('variant')
+  return canonical.toString()
 }
 
 export function stableHash(value: string): string {
@@ -44,7 +51,7 @@ export function productFreshnessKey(value: string): string {
   return canonical.toString()
 }
 
-export function cartItemId(productId: string, size?: string, color?: string): string {
-  const variant = `${productId}|${size?.trim().toLowerCase() ?? ''}|${color?.trim().toLowerCase() ?? ''}`
+export function cartItemId(productId: string, size?: string, color?: string, variantId?: string): string {
+  const variant = variantId ? `${productId}|variant:${variantId}` : `${productId}|${size?.trim().toLowerCase() ?? ''}|${color?.trim().toLowerCase() ?? ''}`
   return `cart:${stableHash(variant)}`
 }

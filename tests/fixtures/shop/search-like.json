@@ -1,0 +1,244 @@
+{
+  "ucp": {
+    "version": "2026-08-25"
+  },
+  "products": [
+    {
+      "id": "gid://shopify/p/1ubdv0JCHW8oVl0leyMtnb",
+      "title": "In Your Memories Linen Shirt - Off White",
+      "description": {
+        "plain": "Available In Kelly Green, Off White And Taupe. \n Linen Shirt \n Button Down \n Collared \n Non Stretch \n Shell 53% Polyester 47% Spandex \n Imported \n Available In Plus Sizes"
+      },
+      "rating": {
+        "value": 4.5,
+        "scale_min": 1,
+        "scale_max": 5,
+        "count": 802
+      },
+      "media": [
+        {
+          "type": "image",
+          "url": "https://cdn.shopify.com/s/files/1/0293/9277/products/12-20-22Studio2_ME_RL_13-39-36_28_BT03435_OffWhite_P_6147_ES.jpg",
+          "alt_text": "In Your Memories Linen Shirt - Off White"
+        }
+      ],
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            {
+              "label": "Kellygreen"
+            },
+            {
+              "label": "Off White"
+            },
+            {
+              "label": "Taupe"
+            }
+          ]
+        },
+        {
+          "name": "Size",
+          "values": [
+            {
+              "label": "Extra small (XS)"
+            },
+            {
+              "label": "Small (S)"
+            },
+            {
+              "label": "Medium (M)"
+            },
+            {
+              "label": "Large (L)"
+            },
+            {
+              "label": "Extra large (XL)"
+            },
+            {
+              "label": "Double extra large (XXL)"
+            },
+            {
+              "label": "Triple extra large (XXXL)"
+            },
+            {
+              "label": "1X"
+            }
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "id": "gid://shopify/ProductVariant/39261314285692",
+          "title": "In Your Memories Linen Shirt - Off White",
+          "description": {
+            "plain": "Available In Kelly Green, Off White And Taupe. \n Linen Shirt \n Button Down \n Collared \n Non Stretch \n Shell 53% Polyester 47% Spandex \n Imported \n Available In Plus Sizes"
+          },
+          "url": "https://www.fashionnova.com/products/in-your-memories-linen-shirt-fncolorname-off-white?variant=39261314285692&_gsid=XGVYC7p6Dc5m&utm_source=shopify&utm_medium=catalog",
+          "price": {
+            "amount": 2900,
+            "currency": "CAD"
+          },
+          "availability": {
+            "available": true
+          },
+          "options": [
+            {
+              "name": "Color",
+              "label": "Off White"
+            },
+            {
+              "name": "Size",
+              "label": "Small (S)"
+            }
+          ],
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/0293/9277/products/12-20-22Studio2_ME_RL_13-39-36_28_BT03435_OffWhite_P_6147_ES.jpg",
+              "alt_text": "In Your Memories Linen Shirt - Off White"
+            }
+          ],
+          "seller": {
+            "id": "gid://shopify/Shop/2939277",
+            "name": "Fashion Nova",
+            "url": "https://www.fashionnova.com",
+            "domain": "fnova.myshopify.com"
+          },
+          "checkout_url": "https://www.fashionnova.com/cart/39261314285692:1?_gsid=XGVYC7p6Dc5m&utm_source=shopify&utm_medium=catalog&payment=shop_pay",
+          "rating": {
+            "value": 4.5,
+            "scale_min": 1,
+            "scale_max": 5,
+            "count": 2
+          },
+          "condition": [
+            "new"
+          ]
+        }
+      ],
+      "price_range": {
+        "min": {
+          "amount": 2900,
+          "currency": "CAD"
+        },
+        "max": {
+          "amount": 2900,
+          "currency": "CAD"
+        }
+      }
+    },
+    {
+      "id": "gid://shopify/p/2LElD5HC0b01JFWphAg9eB",
+      "title": "Long Live Linen Shirt - White",
+      "description": {
+        "plain": "Available In White. \n Linen Shirt \n Long Sleeve \n Button Down \n Collar \n Shirttail Hem \n Non Stretch \n 100% Polyester \n Imported \n Available In Plus Sizes"
+      },
+      "rating": {
+        "value": 4.4,
+        "scale_min": 1,
+        "scale_max": 5,
+        "count": 65
+      },
+      "media": [
+        {
+          "type": "image",
+          "url": "https://cdn.shopify.com/s/files/1/0293/9277/files/03-06-24_S1_40_RW340010_White_KT_SS_14-11-12_33305_PXF.jpg",
+          "alt_text": "Long Live Linen Shirt - White"
+        }
+      ],
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            {
+              "label": "White"
+            }
+          ]
+        },
+        {
+          "name": "Size",
+          "values": [
+            {
+              "label": "XS"
+            },
+            {
+              "label": "XL"
+            },
+            {
+              "label": "1X"
+            },
+            {
+              "label": "3X"
+            }
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "id": "gid://shopify/ProductVariant/39271842414716",
+          "title": "Long Live Linen Shirt - White",
+          "description": {
+            "plain": "Available In White. \n Linen Shirt \n Long Sleeve \n Button Down \n Collar \n Shirttail Hem \n Non Stretch \n 100% Polyester \n Imported \n Available In Plus Sizes"
+          },
+          "url": "https://www.fashionnova.com/products/long-live-linen-shirt-fncolorname-white?variant=39271842414716&_gsid=XGVYC7p6Dc5m&utm_source=shopify&utm_medium=catalog",
+          "price": {
+            "amount": 2900,
+            "currency": "CAD"
+          },
+          "availability": {
+            "available": false
+          },
+          "options": [
+            {
+              "name": "Color",
+              "label": "White"
+            },
+            {
+              "name": "Size",
+              "label": "M"
+            }
+          ],
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/0293/9277/files/03-06-24_S1_40_RW340010_White_KT_SS_14-11-12_33305_PXF.jpg",
+              "alt_text": "Long Live Linen Shirt - White"
+            }
+          ],
+          "seller": {
+            "id": "gid://shopify/Shop/2939277",
+            "name": "Fashion Nova",
+            "url": "https://www.fashionnova.com",
+            "domain": "fnova.myshopify.com"
+          },
+          "checkout_url": "https://www.fashionnova.com/cart/39271842414716:1?_gsid=XGVYC7p6Dc5m&utm_source=shopify&utm_medium=catalog&payment=shop_pay",
+          "condition": [
+            "new"
+          ]
+        }
+      ],
+      "price_range": {
+        "min": {
+          "amount": 2900,
+          "currency": "CAD"
+        },
+        "max": {
+          "amount": 2900,
+          "currency": "CAD"
+        }
+      }
+    }
+  ],
+  "messages": [],
+  "pagination": {
+    "has_next_page": true,
+    "total_count": 461,
+    "cursor": "eyJvZmZzZXQiOjMsInRvdGFsX2NvdW50Ijo0NjEsInJldHVybmVkIjozfQ"
+  },
+  "next": [
+    "A featured variant may already answer the user's needs; use get_product only for other options or a concrete missing fact. Preserve the exact variant and seller. Create a basket or checkout only for user-directed basket, quote or review intent.",
+    "For useful adjacent alternatives, use search_catalog with one returned product or variant ID in `like`. Keep hard requirements in supported filters; preserve and verify the rest. Never substitute without user approval.",
+    "Paginate only if current results fit the task but are insufficient; carry the opaque cursor and search scope forward. If they miss the user's intent, refine instead."
+  ]
+}

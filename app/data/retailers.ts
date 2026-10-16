@@ -14,6 +14,7 @@ function logo(domain: string): string {
 
 interface AdapterOptions {
   aliases?: string[]
+  extraDomains?: string[]
   categories?: ProductCategory[]
   styles?: StyleId[]
   occasions?: Occasion[]
@@ -33,7 +34,7 @@ function adapter(
   return {
     id,
     name,
-    domains: [domain],
+    domains: [domain, ...(options.extraDomains ?? [])],
     logo: logo(domain),
     departments,
     tags,
@@ -50,10 +51,11 @@ function adapter(
 }
 
 export const RETAILERS: RetailerAdapter[] = [
+  adapter('aldo', 'ALDO', 'aldoshoes.com', 'https://www.aldoshoes.com/en-ca/search?q={query}', ['women', 'men'], ['footwear', 'occasion'], { aliases: ['aldo shoes'], categories: ['footwear', 'accessories'], styles: ['classic', 'smart-casual', 'minimal'], occasions: ['dinner', 'formal', 'work', 'party'], priceTier: 'mid', retailerType: 'specialist' }),
   adapter('fashion-nova', 'Fashion Nova', 'fashionnova.com', 'https://www.fashionnova.com/en-ca/pages/search-results?q={query}', ['women', 'men'], ['trend', 'party', 'denim'], { aliases: ['fashionnova'], styles: ['y2k', 'streetwear'], occasions: ['party', 'date-night', 'casual'], priceTier: 'value' }),
   adapter('shein', 'SHEIN', 'ca.shein.com', 'https://ca.shein.com/pdsearch/{query}/', ['women', 'men'], ['value', 'trend', 'wide-selection'], { styles: ['y2k', 'streetwear'], occasions: ['casual', 'party', 'vacation'], priceTier: 'value', retailerType: 'marketplace' }),
   adapter('oh-polly', 'Oh Polly', 'us.ohpolly.com', 'https://us.ohpolly.com/search?q={query}', ['women'], ['occasion', 'party', 'dresses'], { aliases: ['ohpolly'], categories: ['dresses', 'tops', 'bottoms', 'swimwear'], styles: ['smart-casual', 'y2k'], occasions: ['party', 'date-night', 'dinner', 'vacation'], priceTier: 'mid', retailerType: 'specialist' }),
-  adapter('gymshark', 'Gymshark', 'ca.gymshark.com', 'https://ca.gymshark.com/search?q={query}', ['women', 'men'], ['activewear', 'training'], { categories: ['activewear', 'tops', 'bottoms', 'accessories'], styles: ['sporty', 'minimal'], occasions: ['training', 'casual', 'travel'], priceTier: 'mid', retailerType: 'specialist' }),
+  adapter('gymshark', 'Gymshark', 'ca.gymshark.com', 'https://ca.gymshark.com/search?q={query}', ['women', 'men'], ['activewear', 'training'], { extraDomains: ['ca.checkout.gymshark.com'], categories: ['activewear', 'tops', 'bottoms', 'accessories'], styles: ['sporty', 'minimal'], occasions: ['training', 'casual', 'travel'], priceTier: 'mid', retailerType: 'specialist' }),
   adapter('zara', 'Zara', 'zara.com', 'https://www.zara.com/ca/en/search?searchTerm={query}', ['women', 'men'], ['editorial', 'trend'], { categories: APPAREL_AND_FRAGRANCE, styles: ['minimal', 'smart-casual', 'classic'], occasions: ['dinner', 'work', 'casual', 'vacation'], priceTier: 'mid' }),
   adapter('hm', 'H&M', 'www2.hm.com', 'https://www2.hm.com/en_ca/search-results.html?q={query}', ['women', 'men'], ['value', 'basics'], { aliases: ['h and m'], categories: APPAREL_AND_FRAGRANCE, styles: ['minimal', 'classic', 'streetwear'], occasions: CORE_OCCASIONS, priceTier: 'value', retailerType: 'department' }),
   adapter('uniqlo', 'UNIQLO', 'uniqlo.com', 'https://www.uniqlo.com/ca/en/search?q={query}', ['women', 'men', 'all'], ['minimal', 'basics'], { styles: ['minimal', 'classic', 'smart-casual'], occasions: ['work', 'casual', 'travel', 'vacation'], priceTier: 'value' }),

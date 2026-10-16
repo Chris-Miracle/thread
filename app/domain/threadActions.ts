@@ -1,27 +1,36 @@
-import type { Ref } from 'vue'
+import { storeDomain } from '~/domain/search/stores'
+import { ref, type Ref } from 'vue'
 import { RETAILERS } from '~/data/retailers'
-import { hydrateCartState, hydrateSearchState } from '~/domain/persistence'
+import { SIZED_PRODUCT_CATEGORIES, hasRequiredShopOptions, isColorOption, isSizeOption, buildCheckoutGroups, groupCartItems, groupItemsHash, matchVariant, pruneMerchantCarts } from '~/domain/cart/checkoutPlan'
+import { hydrateCartState, hydrateInspirationState, hydrateSearchState } from '~/domain/persistence'
 import { cartItemId, productFreshnessKey, stableHash } from '~/domain/productIdentity'
 import {
   type ProfileInput, migrateProfile, updateProfile as mergeProfile, validateProfile,
 } from '~/domain/profile/profile'
-import { applyProductEnrichment, mergeCandidate, normalizeCandidate } from '~/domain/products/productValidation'
+import { fromMinorUnits, applyProductEnrichment, mergeCandidate, normalizeCandidate } from '~/domain/products/productValidation'
 import { rankAndDiversifyProducts } from '~/domain/products/productRanking'
-import { resolveCartVariant } from '~/domain/products/productVariants'
+import { getProductVariantPolicy, resolveCartVariant } from '~/domain/products/productVariants'
 import { getSessionCollectionProducts, getSessionRootPrompt, getSessionRootSearchId } from '~/domain/research/collection'
 import { evaluateMissionFulfillment } from '~/domain/research/fulfillment'
-import { archiveReviewedSearch, cloneResearchHistory, hydrateResearchHistory, recordSeenProducts } from '~/domain/research/history'
-import { claimSearchTargets as claimTargets, createResearchTargets, getSearchCoverage } from '~/domain/research/scheduler'
+import {
+  archiveReviewedSearch, cloneResearchHistory, hydrateResearchHistory, recordPurchaseSignals, recordSeenProducts,
+} from '~/domain/research/history'
+import {
+  MAX_SIMILARITY_TARGETS, claimSearchTargets as claimTargets, createResearchTargets, createSimilarityTarget, getSearchCoverage, similarityTargetId,
+} from '~/domain/research/scheduler'
+import { nextSteps, type AgentStep } from '~/domain/research/runbook'
+import { buildSimilarityRequests, imageLikeEntry, matchesSavedSize } from '~/domain/research/shopRequests'
 import { appendTrace } from '~/domain/research/telemetry'
-import { createSearchMission } from '~/domain/search/mission'
+import { MAX_MISSION_SEEDS, createSearchMission } from '~/domain/search/mission'
 import type { StorageAdapter } from '~/utils/storage'
 import {
-  CART_STORAGE_KEY, LEGACY_CART_STORAGE_KEYS, LEGACY_PRODUCT_STORAGE_KEYS, LEGACY_PROFILE_STORAGE_KEYS,
+  CART_STORAGE_KEY, INSPIRATION_STORAGE_KEY, LEGACY_CART_STORAGE_KEYS, LEGACY_PRODUCT_STORAGE_KEYS, LEGACY_PROFILE_STORAGE_KEYS,
   LEGACY_SEARCH_STORAGE_KEYS, PROFILE_STORAGE_KEY, RESEARCH_HISTORY_STORAGE_KEY, SEARCH_STORAGE_KEY, safeParse,
 } from '~/utils/storage'
-import { emptySearchState } from '~/types/thread'
+import { emptyCartState, emptyInspirationState, emptySearchState } from '~/types/thread'
 import type {
-  ActionSource, AddToCartResult, CartState, CartSummary, GetProductsInput, Product,
+  ActionSource, AddToCartResult, CartState, CartSummary, GetProductsInput, InspirationItem, InspirationSource, InspirationState,
+  MerchantCart, Product, ProductCategory, SimilaritySeed, VisualGuide, CartSelection,
   ProductCandidateInput, ProductEnrichmentInput, PublishCandidatesResult, ResearchTarget,
   RecommendationReview, RecommendationReviewResolution, ReplacementContext, SearchMissionInput, SearchSession, SearchState, StyleProfile,
 } from '~/types/thread'
@@ -38,11 +47,16 @@ export function validateAgentStyleProfile(input: ProfileInput): StyleProfile {
 
 export const SEARCH_SESSION_PRODUCT_LIMIT = 600
 export const RECOMMENDATION_REVIEW_WINDOW_MS = 2 * 60 * 1000
+export const MAX_INSPIRATION_ITEMS = 8
+// Uploads are downscaled before storage; this bounds one stored image to roughly 150 KB.
+const MAX_INSPIRATION_DATA_URL_LENGTH = 200_000
+const PINTEREST_HOST = /(^|\.)pinterest\.[a-z.]+$|^pin\.it$/i
 
 export interface ThreadActionDependencies {
   profile: Ref<StyleProfile | null>
   cart: Ref<CartState>
   search: Ref<SearchState>
+  inspiration?: Ref<InspirationState>
   hydrated: Ref<boolean>
   storage: StorageAdapter
   fixtures?: readonly Product[]
@@ -59,6 +73,10 @@ function cloneProduct(product: Product): Product {
     sizes: [...product.sizes],
     styleTags: [...product.styleTags],
     occasionTags: [...product.occasionTags],
+    commerce: product.commerce
+      ? { ...product.commerce, selectedOptions: product.commerce.selectedOptions.map(option => ({ ...option })) }
+      : undefined,
+    variants: product.variants?.map(variant => ({ ...variant, options: variant.options.map(option => ({ ...option })) })),
   }
 }
 
@@ -69,6 +87,8 @@ function cloneTarget(target: ResearchTarget): ResearchTarget {
     priorityReasons: [...target.priorityReasons],
     queries: [...target.queries],
     searchUrls: [...target.searchUrls],
+    catalogRequests: target.catalogRequests ? JSON.parse(JSON.stringify(target.catalogRequests)) : undefined,
+    seed: target.seed ? { ...target.seed } : undefined,
   }
 }
 
@@ -96,14 +116,20 @@ function cloneSession(session: SearchSession): SearchSession {
         ...need,
         queries: [...need.queries],
         categories: [...need.categories],
+        ...(need.retailerIds ? { retailerIds: [...need.retailerIds] } : {}),
+        ...(need.storeDomains ? { storeDomains: [...need.storeDomains] } : {}),
+        ...(need.storeNames ? { storeNames: [...need.storeNames] } : {}),
       })),
       constraints: {
         ...session.mission.constraints,
         categories: [...session.mission.constraints.categories],
         retailerIds: [...session.mission.constraints.retailerIds],
         excludedRetailerIds: [...session.mission.constraints.excludedRetailerIds],
+        storeDomains: [...(session.mission.constraints.storeDomains ?? [])],
+        storeNames: [...(session.mission.constraints.storeNames ?? [])],
       },
       derivedQueries: [...session.mission.derivedQueries],
+      seeds: session.mission.seeds?.map(seed => ({ ...seed })),
     },
     targets: session.targets.map(cloneTarget),
     products: session.products.map(cloneProduct),
@@ -160,6 +186,26 @@ function createRecommendationReview(session: SearchSession, now: string): Recomm
 }
 
 export function createThreadActions(deps: ThreadActionDependencies) {
+  const inspiration = deps.inspiration ?? ref<InspirationState>(emptyInspirationState())
+
+  /** Runbook steps for the agent, detached from reactive state so they serialize across WebMCP. */
+  function agentNext(session: SearchSession | null, claimed?: readonly ResearchTarget[]): AgentStep[] {
+    return JSON.parse(JSON.stringify(nextSteps(session, claimed)))
+  }
+
+  function persistInspiration(): void {
+    deps.storage.setItem(INSPIRATION_STORAGE_KEY, JSON.stringify(inspiration.value))
+  }
+
+  /** Upload seeds keep their bytes in the inspiration store; claimed targets receive ready `like` requests. */
+  function withSeedImage(target: ResearchTarget, session: SearchSession): ResearchTarget {
+    const seed = target.seed
+    if (seed?.kind !== 'image' || seed.source !== 'upload') return target
+    const item = inspiration.value.items.find(candidate => candidate.id === seed.inspirationId)
+    const need = session.mission.needs.find(candidate => target.needIds.includes(candidate.id)) ?? session.mission.needs[0]
+    if (!item?.imageData || !need) return target
+    return { ...target, catalogRequests: buildSimilarityRequests(seed, need, session.mission, deps.profile.value, item.imageData) }
+  }
   function readResearchHistory() {
     return hydrateResearchHistory(safeParse(deps.storage.getItem(RESEARCH_HISTORY_STORAGE_KEY)))
   }
@@ -272,6 +318,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       .map(key => safeParse(deps.storage.getItem(key)))
       .find(value => value !== null)
     deps.search.value = hydrateSearchState(currentSearchValue ?? legacySearchValue)
+    inspiration.value = hydrateInspirationState(safeParse(deps.storage.getItem(INSPIRATION_STORAGE_KEY)))
     const hydratedSession = deps.search.value.activeSearch
     if (hydratedSession && hydratedSession.status !== 'active' && hydratedSession.products.length && !hydratedSession.recommendationReview) {
       const now = new Date().toISOString()
@@ -348,14 +395,16 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       CART_STORAGE_KEY,
       SEARCH_STORAGE_KEY,
       RESEARCH_HISTORY_STORAGE_KEY,
+      INSPIRATION_STORAGE_KEY,
       ...LEGACY_SEARCH_STORAGE_KEYS,
       ...LEGACY_PROFILE_STORAGE_KEYS,
       ...LEGACY_CART_STORAGE_KEYS,
       ...LEGACY_PRODUCT_STORAGE_KEYS,
     ]) deps.storage.removeItem(key)
     deps.profile.value = null
-    deps.cart.value = { version: 3, items: [] }
+    deps.cart.value = emptyCartState()
     deps.search.value = emptySearchState()
+    inspiration.value = emptyInspirationState()
     deps.hydrated.value = true
   }
 
@@ -415,13 +464,29 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       freshness: {
         excludedProductCount: readResearchHistory().seenProductKeys.length,
         styleCues: readResearchHistory().entries.flatMap(entry => entry.products.map(product => product.name)).slice(0, 8),
+        purchasedBrands: readResearchHistory().purchasedBrands.slice(-12),
       },
       nextAction: 'claim_search_targets' as const,
+      next: agentNext(session),
     }
+  }
+
+  function resolveStore(input: { searchId: string; name: string; domain: string }) {
+    let session = currentSession(input.searchId, true)
+    const names = session.mission.constraints.storeNames ?? []
+    if (!names.includes(input.name)) throw new Error('This store is not awaiting resolution.')
+    if (session.products.length || session.targets.some(target => target.status !== 'queued')) throw new Error('Resolve named stores before claiming research targets.')
+    const domain = storeDomain(input.domain)
+    const mission = { ...session.mission, needs: session.mission.needs.map(need => need.storeNames?.includes(input.name)
+      ? { ...need, storeNames: need.storeNames.filter(name => name !== input.name), storeDomains: [...new Set([...(need.storeDomains ?? []), domain])] } : need), constraints: { ...session.mission.constraints,
+      storeNames: names.filter(name => name !== input.name), storeDomains: [...new Set([...(session.mission.constraints.storeDomains ?? []), domain])] } }
+    session = commitSession({ ...session, mission, targets: createResearchTargets(mission, deps.profile.value) })
+    return { searchId: session.id, mission: cloneSession(session).mission, next: agentNext(session) }
   }
 
   function claimSearchTargets(input: { searchId: string; limit?: number; workerId?: string }) {
     let session = currentSession(input.searchId, true)
+    if (session.mission.constraints.storeNames?.length) throw new Error('Resolve the requested stores to verified official domains before claiming targets.')
     const inFlight = session.targets.filter(target => ['claimed', 'exploring'].includes(target.status))
     if (inFlight.length) {
       throw new Error(`Resolve the ${inFlight.length} claimed or exploring target${inFlight.length === 1 ? '' : 's'} before claiming another batch.`)
@@ -439,12 +504,25 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       session = commitSession(session, now)
     }
     const coverage = getSearchCoverage(session)
+    const claimed = result.claimed.map(target => withSeedImage(cloneTarget(target), session))
     return {
       searchId: session.id,
-      targets: result.claimed.map(cloneTarget),
+      targets: claimed,
       coverage,
       nextAction: result.claimed.length ? 'publish_candidates' as const : coverage.unresolvedTargets ? 'complete_search_target' as const : 'get_search_status' as const,
+      next: agentNext(session, claimed),
     }
+  }
+
+  function getShopRequest(searchId: string, targetId: string, requestIndex = 0) {
+    const session = currentSession(searchId, true)
+    const target = session.targets.find(target => target.id === targetId)
+    if (target?.sourceType !== 'catalog' || !['claimed', 'exploring'].includes(target.status)) throw new Error('Claim an active Shop catalogue target before searching.')
+    if (!Number.isInteger(requestIndex) || requestIndex < 0) throw new Error('requestIndex must be a non-negative integer.')
+    const requests = withSeedImage(cloneTarget(target), session).catalogRequests ?? []
+    const request = requests[requestIndex]
+    if (!request) throw new Error('No planned Shop request exists at this index.')
+    return { request, requestCount: requests.length }
   }
 
   function publishCandidates(input: {
@@ -470,7 +548,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     }
 
     const accepted: Product[] = []
-    const rejected: Array<{ index: number; reason: string }> = []
+    const rejected: PublishCandidatesResult['rejected'] = []
     const registry = new Map(session.products.map(product => [product.id, product]))
     let newProductCount = 0
     const previouslySeen = new Set([
@@ -495,7 +573,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
         session = appendTrace(session, { type: 'candidate_accepted', targetId: target.id, productId: product.id, message: `Accepted ${product.name} from ${product.retailer}.`, at: now })
       } catch (error) {
         const reason = error instanceof Error ? error.message : 'Invalid candidate.'
-        rejected.push({ index, reason })
+        rejected.push({ index, ...(typeof candidate.name === 'string' ? { name: candidate.name.slice(0, 120) } : {}), reason })
         session = appendTrace(session, { type: 'candidate_rejected', targetId: target.id, message: reason, details: { candidateIndex: index }, at: now })
       }
     })
@@ -533,7 +611,10 @@ export function createThreadActions(deps: ThreadActionDependencies) {
 
   function enrichProduct(searchId: string, input: ProductEnrichmentInput): Product {
     let session = currentSession(searchId)
-    if (['cancelled', 'abandoned', 'failed'].includes(session.status)) throw new Error(`Search is ${session.status}; products cannot be enriched.`)
+    // A stopped mission stays read-only, except for pieces the person kept: verifying them is how they reach the Thread.
+    const review = session.recommendationReview
+    const kept = Boolean(review && review.status !== 'pending' && review.likedProductIds.includes(input.productId))
+    if (['cancelled', 'abandoned', 'failed'].includes(session.status) && !kept) throw new Error(`Search is ${session.status}; only products kept in its review can be enriched.`)
     const current = session.products.find(product => product.id === input.productId)
     if (!current) throw new Error(`Product not found: ${input.productId}`)
     const enriched = applyProductEnrichment(current, input, session)
@@ -556,6 +637,9 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       at: now,
     })
     commitSession(session, now)
+    // Saved edits share enriched evidence, rather than retaining stale candidate snapshots.
+    const history = readResearchHistory()
+    persistResearchHistory({ ...history, entries: history.entries.map(entry => ({ ...entry, products: entry.products.map(product => product.id === enriched.id ? cloneProduct(enriched) : product) })) })
     return cloneProduct(enriched)
   }
 
@@ -570,7 +654,8 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     if (!target) throw new Error(`Search target not found: ${input.targetId}`)
     if (!['claimed', 'exploring'].includes(target.status)) throw new Error('Only claimed or exploring targets may be completed.')
     const note = input.note?.trim().slice(0, 300) ?? ''
-    if (input.status === 'complete' && target.productCount === 0) {
+    const pinnedCount = inspiration.value.items.filter(item => item.targetId === target.id).length
+    if (input.status === 'complete' && target.productCount === 0 && !pinnedCount) {
       throw new Error('A target cannot be complete with zero accepted products. Use no-results or failed.')
     }
     if ((input.status === 'no-results' || input.status === 'failed') && !note) {
@@ -594,7 +679,10 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     session = { ...session, fulfillment: evaluateMissionFulfillment(session.mission, session.products) }
     const inFlight = session.targets.some(candidate => ['claimed', 'exploring'].includes(candidate.status))
     const queued = session.targets.some(candidate => candidate.status === 'queued')
-    if (session.fulfillment.satisfied && !inFlight && queued) {
+    // Similarity searches the person asked for are never skipped by early satisfaction, and research only stops
+    // early once every required need had real alternatives to choose from.
+    const requestedPending = session.targets.some(candidate => candidate.seed && candidate.status === 'queued')
+    if (session.fulfillment.ready && !inFlight && queued && !requestedPending) {
       session = {
         ...session,
         status: 'satisfied',
@@ -638,6 +726,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       searchStatus: session.status,
       fulfillment: session.fulfillment,
       nextAction: session.status !== 'active' ? reviewNextAction(session) : coverage.queuedTargets ? 'claim_search_targets' as const : 'complete_search_target' as const,
+      next: agentNext(session),
     }
   }
 
@@ -647,7 +736,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     const rejectedProducts = collection.filter(product => requested.has(product.id))
     if (!rejectedProducts.length) throw new Error('Choose at least one presented product to replace.')
     const coveredProductIds = new Set<string>()
-    const replacementNeeds = session.mission.needs.flatMap((need) => {
+    const replacementNeeds: NonNullable<SearchMissionInput['needs']> = session.mission.needs.flatMap((need) => {
       const selectedForNeed = session.fulfillment.needs.find(item => item.needId === need.id)?.selectedProductIds ?? []
       const matchingProducts = rejectedProducts.filter(product => product.needIds.includes(need.id))
       const quantity = selectedForNeed.filter(productId => requested.has(productId)).length || matchingProducts.length
@@ -664,6 +753,9 @@ export function createThreadActions(deps: ThreadActionDependencies) {
         required: need.required,
         quantity,
         budgetCad: need.budgetCad,
+        retailerIds: need.retailerIds ? [...need.retailerIds] : undefined,
+        storeDomains: need.storeDomains ? [...need.storeDomains] : undefined,
+        storeNames: need.storeNames ? [...need.storeNames] : undefined,
       }]
     })
     replacementNeeds.push(...rejectedProducts
@@ -680,6 +772,18 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       .map(productId => collection.find(product => product.id === productId)?.name)
       .filter((name): name is string => Boolean(name)) ?? []
     const cue = likedNames.length ? ` Use the accepted pieces as style cues: ${likedNames.join(', ')}.` : ''
+    // Liked Shop products seed visual similarity searches for their replacements.
+    const seeds = (session.recommendationReview?.likedProductIds ?? [])
+      .map(productId => collection.find(product => product.id === productId))
+      .filter((product): product is Product => Boolean(product?.commerce))
+      .slice(0, MAX_MISSION_SEEDS)
+      .map((product): SimilaritySeed => ({
+        kind: 'product',
+        productId: product.id,
+        name: product.name,
+        shopProductId: product.commerce!.productId,
+        category: product.category,
+      }))
     return {
       rawPrompt: `Replace ${rejectedProducts.map(product => product.name).join(', ')}. Keep every other accepted item. Original brief: ${getSessionRootPrompt(session)}`,
       shoppingDepartment: session.mission.shoppingDepartment,
@@ -693,10 +797,13 @@ export function createThreadActions(deps: ThreadActionDependencies) {
       needs: replacementNeeds,
       constraints: {
         ...session.mission.constraints,
-        categories: [...new Set(replacementNeeds.flatMap(need => need.categories))],
+        categories: [...new Set(replacementNeeds.flatMap(need => need.categories ?? []))],
         retailerIds: [...session.mission.constraints.retailerIds],
         excludedRetailerIds: [...session.mission.constraints.excludedRetailerIds],
+        storeDomains: [...(session.mission.constraints.storeDomains ?? [])],
+        storeNames: [...(session.mission.constraints.storeNames ?? [])],
       },
+      ...(seeds.length ? { seeds } : {}),
     }
   }
 
@@ -726,7 +833,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     if (input.decision === 'accept-all') {
       const reviewed = finalizeRecommendationReview(session, 'user-accepted', review.productIds, [], new Date().toISOString())
       deps.notify?.('Recommendations accepted and saved locally.')
-      return { searchId: reviewed.id, review: cloneRecommendationReview(reviewed.recommendationReview!), nextAction: 'research_again' as const }
+      return { searchId: reviewed.id, review: cloneRecommendationReview(reviewed.recommendationReview!), nextAction: 'research_again' as const, next: agentNext(reviewed) }
     }
     const rejectedProductIds = input.decision === 'replace-all'
       ? [...review.productIds]
@@ -802,8 +909,13 @@ export function createThreadActions(deps: ThreadActionDependencies) {
         : { ...target, status: 'cancelled', note: 'Search cancelled before this target resolved.', updatedAt: now }),
     }
     session = appendTrace(session, { type: 'search_cancelled', message: session.cancellationReason!, at: now })
+    // Accepted products stay in front of the person: stopping early still hands them a timed review.
+    session = { ...session, fulfillment: evaluateMissionFulfillment(session.mission, session.products) }
+    if (!session.recommendationReview) session = { ...session, recommendationReview: createRecommendationReview(session, now) }
     commitSession(session, now)
-    deps.notify?.(disposition === 'abandoned' ? 'Research abandoned. Existing candidates remain available.' : 'Research stopped. Existing candidates remain available.')
+    deps.notify?.(session.recommendationReview?.status === 'pending'
+      ? `Research ${disposition === 'abandoned' ? 'abandoned' : 'stopped'}. Review the products found so far before Rove saves them.`
+      : disposition === 'abandoned' ? 'Research abandoned. Existing candidates remain available.' : 'Research stopped. Existing candidates remain available.')
     return getSearchStatus(searchId)
   }
 
@@ -835,6 +947,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
         : session.targets.some(target => target.status === 'queued')
           ? 'claim_search_targets'
           : 'complete_search_target',
+      next: agentNext(session),
     }
   }
 
@@ -879,23 +992,42 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     return product ? cloneProduct(product) : undefined
   }
 
-  function addToCart(productId: string, options: { size?: string; color?: string } = {}, source: ActionSource = 'human'): AddToCartResult {
-    const product = getProductById(productId)
-    if (!product) throw new Error(`Product not found: ${productId}`)
-    if (product.availability === 'out-of-stock') throw new Error(`${product.name} is marked out of stock.`)
-    if (product.stage !== 'enriched') throw new Error('This candidate needs product enrichment before it can be added. Open the retailer page to verify variants.')
-    const variant = resolveCartVariant(product, options)
-    const id = cartItemId(product.id, variant.size, variant.color)
+  function addToCart(productId: string, options: CartSelection = {}, source: ActionSource = 'human'): AddToCartResult {
+    const found = getProductById(productId)
+    if (!found) throw new Error(`Product not found: ${productId}`)
+    if (found.stage !== 'enriched') throw new Error('This candidate needs product enrichment before it can be added. Verify its exact options, stock and price.')
+    let product = found
+    const variant = product.commerce ? { size: options.size, color: options.color } : resolveCartVariant(product, options)
+    const shopVariant = product.commerce ? matchVariant(product, variant.size, variant.color, options) : undefined
+    if (product.commerce) {
+      if (!shopVariant) throw new Error('This exact option combination has not been verified. Ask your agent to verify it through Shop before adding it.')
+      if (!hasRequiredShopOptions(product, shopVariant)) throw new Error('Shop has not verified a size for this wearable item. Ask your agent to resolve the exact size before adding it.')
+      if (!shopVariant.available) throw new Error(`${[variant.size, variant.color].filter(Boolean).join(' / ') || 'This option'} is sold out for ${product.name}.`)
+      const priceCad = shopVariant.currency === 'CAD' && shopVariant.priceMinor !== undefined
+        ? shopVariant.priceMinor / 100
+        : shopVariant.priceCad
+      if (priceCad === undefined || !Number.isFinite(priceCad) || priceCad <= 0) throw new Error('This exact Shop variant needs a verified CAD price.')
+      product = { ...product, priceCad,
+        nativePrice: shopVariant.priceMinor !== undefined && shopVariant.currency ? fromMinorUnits(shopVariant.priceMinor, shopVariant.currency) : product.nativePrice,
+        nativeCurrency: shopVariant.currency ?? product.nativeCurrency, availability: 'in-stock', commerce: { ...product.commerce, variantId: shopVariant.id, selectedOptions: shopVariant.options.map(option => ({ ...option })), url: shopVariant.url ?? (product.commerce.variantId === shopVariant.id ? product.commerce.url : product.url) } }
+      variant.size = shopVariant.size
+      variant.color = shopVariant.color
+    } else if (product.availability === 'out-of-stock') throw new Error(`${product.name} is marked out of stock.`)
+    const id = cartItemId(product.id, variant.size, variant.color, shopVariant?.id)
     const existing = deps.cart.value.items.find(item => item.id === id)
     if (existing) {
+      const refreshed = { ...existing, product: cloneProduct(product), selectedOptions: shopVariant?.options.map(option => ({ ...option })) }
+      deps.cart.value = { ...deps.cart.value, items: deps.cart.value.items.map(item => item.id === id ? refreshed : item) }
+      persistCart()
+      if (existing.product.priceCad !== product.priceCad) deps.notify?.(`${product.name}'s verified price was updated in Your Thread.`)
       const summary = getCart()
-      return { success: true, duplicate: true, item: { ...existing, product: cloneProduct(existing.product) }, cartCount: summary.itemCount, totals: summary.totals }
+      return { success: true, duplicate: true, item: refreshed, cartCount: summary.itemCount, totals: summary.totals }
     }
-    const item = { id, productId: product.id, product, size: variant.size, color: variant.color, addedAt: new Date().toISOString() }
-    deps.cart.value = { version: 3, items: [...deps.cart.value.items, item] }
+    const item = { id, productId: product.id, product, size: variant.size, color: variant.color, variantId: shopVariant?.id,
+      selectedOptions: shopVariant?.options.map(option => ({ ...option })), addedAt: new Date().toISOString() }
+    deps.cart.value = { ...deps.cart.value, version: 4, items: [...deps.cart.value.items, item] }
     persistCart()
-    if (source === 'agent') deps.notify?.(`Agent added ${product.name} to Your Thread.`)
-    else if (source === 'human') deps.notify?.(`${product.name} added to Your Thread.`)
+    deps.notify?.(`${source === 'agent' ? 'Agent added ' : ''}${product.name}${source === 'agent' ? ' to' : ' added to'} Your Thread.`)
     const summary = getCart()
     return { success: true, duplicate: false, item: { ...item, product: cloneProduct(product) }, cartCount: summary.itemCount, totals: summary.totals }
   }
@@ -903,25 +1035,481 @@ export function createThreadActions(deps: ThreadActionDependencies) {
   function removeFromCart(itemId: string, source: ActionSource = 'human'): boolean {
     const item = deps.cart.value.items.find(candidate => candidate.id === itemId)
     if (!item) return false
-    deps.cart.value = { version: 3, items: deps.cart.value.items.filter(candidate => candidate.id !== itemId) }
+    const remaining = { ...deps.cart.value, version: 4 as const, items: deps.cart.value.items.filter(candidate => candidate.id !== itemId) }
+    deps.cart.value = { ...remaining, merchantCarts: pruneMerchantCarts(remaining) }
     persistCart()
     if (source === 'agent') deps.notify?.(`Agent removed ${item.product.name} from Your Thread.`)
     return true
   }
 
   function clearCart(): void {
-    deps.cart.value = { version: 3, items: [] }
+    deps.cart.value = emptyCartState()
     persistCart()
   }
 
   function getCart(): CartSummary {
-    const items = deps.cart.value.items.map(item => ({ ...item, product: cloneProduct(item.product) }))
+    const items = deps.cart.value.items.map(item => ({ ...item, selectedOptions: item.selectedOptions?.map(option => ({ ...option })), product: cloneProduct(item.product) }))
     const subtotal = items.reduce((sum, item) => sum + (item.product.priceCad ?? 0), 0)
     return {
       items,
       itemCount: items.length,
       totals: subtotal > 0 ? [{ currency: 'CAD', subtotal: Number(subtotal.toFixed(2)) }] : [],
       unpricedItemCount: items.filter(item => item.product.priceCad === undefined).length,
+      groups: buildCheckoutGroups(deps.cart.value),
+    }
+  }
+
+  function getCheckoutPlan() {
+    const groups = buildCheckoutGroups(deps.cart.value)
+    return {
+      groups,
+      shopGroupsNeedingCarts: groups.filter(group => group.status === 'needs-cart' || group.status === 'stale').map(group => group.key),
+    }
+  }
+
+  function attachMerchantCart(input: {
+    groupKey: string
+    continueUrl: string
+    cartId?: string
+    total?: { amount: number; currency: string }
+    messages?: string[]
+  }) {
+    const items = groupCartItems(deps.cart.value.items).get(input.groupKey)
+    if (!items?.length) throw new Error(`No cart group found for ${input.groupKey}. Read get_checkout_plan first.`)
+    const lead = items[0]!.product
+    if (!lead.commerce) throw new Error('Only Shop-backed seller groups can hold a merchant cart; other stores use their retailer links.')
+    if (items.some(item => !item.variantId || item.product.priceCad === undefined)) throw new Error('Verify every exact cart variant and its price before attaching a checkout.')
+    let continueUrl: URL
+    try {
+      continueUrl = new URL(input.continueUrl.trim())
+    } catch {
+      throw new Error('continueUrl must be the complete continue_url returned by Shop.')
+    }
+    if (continueUrl.protocol !== 'https:' || continueUrl.username || continueUrl.password) throw new Error('continueUrl must use HTTPS.')
+    if (input.total && (!Number.isInteger(input.total.amount) || input.total.amount < 0 || !/^[A-Z]{3}$/.test(input.total.currency.trim().toUpperCase()))) {
+      throw new Error('total must be integer minor units with a three-letter currency.')
+    }
+    const merchantCart: MerchantCart = {
+      groupKey: input.groupKey,
+      sellerName: lead.commerce.sellerName ?? lead.retailer,
+      itemsHash: groupItemsHash(items),
+      // Shop requires the continue_url unchanged, so the raw string is stored rather than a re-serialized URL.
+      continueUrl: input.continueUrl.trim(),
+      cartId: input.cartId?.trim().slice(0, 200) || undefined,
+      totalMinor: input.total?.amount,
+      currency: input.total?.currency.trim().toUpperCase(),
+      messages: [...(input.messages ?? [])],
+      status: 'ready',
+      updatedAt: new Date().toISOString(),
+    }
+    deps.cart.value = {
+      ...deps.cart.value,
+      version: 4,
+      merchantCarts: [...deps.cart.value.merchantCarts.filter(candidate => candidate.groupKey !== input.groupKey), merchantCart],
+    }
+    persistCart()
+    deps.notify?.(`Checkout ready at ${merchantCart.sellerName}.`)
+    return { merchantCart: { ...merchantCart, messages: [...merchantCart.messages] }, plan: getCheckoutPlan() }
+  }
+
+  function cloneInspiration(item: InspirationItem): InspirationItem {
+    return { ...item, needIds: [...item.needIds] }
+  }
+
+  function getInspiration(): InspirationItem[] {
+    return inspiration.value.items.map(cloneInspiration)
+  }
+
+  function addInspiration(input: {
+    source: InspirationSource
+    imageUrl?: string
+    imageData?: string
+    sourceUrl?: string
+    note?: string
+    needIds?: string[]
+    searchId?: string
+    targetId?: string
+  }, actor: ActionSource = 'human'): InspirationItem {
+    if (inspiration.value.items.length >= MAX_INSPIRATION_ITEMS) {
+      throw new Error(`Your inspiration board holds ${MAX_INSPIRATION_ITEMS} images. Remove one before adding another.`)
+    }
+    const now = new Date().toISOString()
+    const note = input.note?.trim().replace(/\s+/g, ' ').slice(0, 200) || undefined
+    let imageUrl: string | undefined
+    let imageData: string | undefined
+    let sourceUrl: string | undefined
+    if (input.source === 'upload') {
+      imageData = input.imageData?.trim()
+      if (!imageData || imageData.length > MAX_INSPIRATION_DATA_URL_LENGTH) throw new Error('Upload a downscaled image under 150 KB.')
+      imageLikeEntry(imageData)
+    } else {
+      const image = new URL(input.imageUrl?.trim() ?? '')
+      if (image.protocol !== 'https:') throw new Error('imageUrl must be a direct HTTPS image URL.')
+      imageUrl = image.toString()
+      if (input.sourceUrl) {
+        const pin = new URL(input.sourceUrl.trim())
+        if (pin.protocol !== 'https:' || !PINTEREST_HOST.test(pin.hostname)) throw new Error('sourceUrl must be the Pinterest pin URL.')
+        sourceUrl = pin.toString()
+      }
+      if (inspiration.value.items.some(item => item.imageUrl === imageUrl)) throw new Error('This pin is already on your inspiration board.')
+    }
+    let needIds: string[] = []
+    let targetId: string | undefined
+    let searchId: string | undefined
+    if (input.searchId) {
+      const session = currentSession(input.searchId, true)
+      searchId = session.id
+      const known = new Set(session.mission.needs.map(need => need.id))
+      needIds = [...new Set(input.needIds ?? [])]
+      if (!needIds.every(id => known.has(id))) throw new Error('needIds must belong to this mission.')
+      if (input.targetId) {
+        const target = session.targets.find(candidate => candidate.id === input.targetId)
+        if (!target || target.id !== 'discovery:pinterest') throw new Error('Pins can only be attached to this mission’s Pinterest target.')
+        if (!['claimed', 'exploring'].includes(target.status)) throw new Error('Claim the Pinterest target before pinning inspiration to it.')
+        targetId = target.id
+      }
+    } else if (input.targetId || input.needIds?.length) {
+      throw new Error('searchId is required when attaching inspiration to a target or need.')
+    }
+    const item: InspirationItem = {
+      id: `inspiration:${stableHash(`${imageUrl ?? imageData!.slice(0, 2_000)}:${now}`)}`,
+      source: input.source,
+      imageUrl,
+      imageData,
+      sourceUrl,
+      note,
+      needIds,
+      searchId,
+      targetId,
+      addedAt: now,
+    }
+    inspiration.value = { version: 1, items: [...inspiration.value.items, item] }
+    persistInspiration()
+    deps.notify?.(actor === 'agent' ? 'Agent pinned inspiration from Pinterest.' : 'Added to your inspiration board.')
+    return cloneInspiration(item)
+  }
+
+  function removeInspiration(inspirationId: string): boolean {
+    const exists = inspiration.value.items.some(item => item.id === inspirationId)
+    if (!exists) return false
+    inspiration.value = { version: 1, items: inspiration.value.items.filter(item => item.id !== inspirationId) }
+    persistInspiration()
+    return true
+  }
+
+  function similaritySeed(input: { productId?: string; inspirationId?: string }): SimilaritySeed {
+    if (input.productId && input.inspirationId) throw new Error('Choose either a product or an inspiration image, not both.')
+    if (input.productId) {
+      const product = getProductById(input.productId)
+      if (!product) throw new Error(`Product not found: ${input.productId}`)
+      return { kind: 'product', productId: product.id, name: product.name, shopProductId: product.commerce?.productId, category: product.category }
+    }
+    if (input.inspirationId) {
+      const item = inspiration.value.items.find(candidate => candidate.id === input.inspirationId)
+      if (!item) throw new Error(`Inspiration not found: ${input.inspirationId}`)
+      return { kind: 'image', inspirationId: item.id, source: item.source, imageUrl: item.imageUrl, note: item.note }
+    }
+    throw new Error('Provide a productId or an inspirationId.')
+  }
+
+  /** "More like this" and "Shop this look": joins the active mission, or starts a focused follow-up mission. */
+  function findSimilar(input: { productId?: string; inspirationId?: string }, actor: ActionSource = 'human') {
+    const seed = similaritySeed(input)
+    const label = seed.kind === 'product' ? seed.name : 'this look'
+    const active = deps.search.value.activeSearch
+    if (active?.status === 'active') {
+      const targetId = similarityTargetId(seed)
+      if (active.targets.some(target => target.id === targetId)) throw new Error(`Rove is already looking for more like ${label} in this mission.`)
+      if (active.targets.filter(target => target.seed).length >= MAX_SIMILARITY_TARGETS) {
+        throw new Error(`This mission already has ${MAX_SIMILARITY_TARGETS} similarity searches. Let them finish first.`)
+      }
+      const now = new Date().toISOString()
+      const target = createSimilarityTarget(seed, active.mission, deps.profile.value, Math.max(0, ...active.targets.map(item => item.rank)) + 1)
+      let session: SearchSession = { ...active, targets: [...active.targets, target] }
+      session = appendTrace(session, { type: 'targets_ranked', targetId: target.id, message: `Added ${target.name}.`, at: now })
+      session = commitSession(session, now)
+      deps.notify?.(actor === 'agent' ? `Agent is looking for more like ${label}.` : `Looking for more like ${label}.`)
+      return { mode: 'appended' as const, searchId: session.id, target: withSeedImage(cloneTarget(target), session), nextAction: 'claim_search_targets' as const }
+    }
+    if (active?.recommendationReview?.status === 'pending') throw new Error('Review the current recommendations before starting a similarity search.')
+    const product = seed.kind === 'product' ? getProductById(seed.productId) : undefined
+    const note = seed.kind === 'image' ? seed.note : undefined
+    const started = startShoppingSearch({
+      rawPrompt: seed.kind === 'product' ? `More like ${seed.name}` : `Shop this look${note ? `: ${note}` : ''}`,
+      // An image starts a mission it guides; a product is just a similarity anchor.
+      ...(seed.kind === 'image' ? { context: { visualGuide: { inspirationId: seed.inspirationId, palette: [], descriptors: [] } } } : {}),
+      needs: [{
+        intent: seed.kind === 'product' ? `more like ${seed.name}` : 'pieces like this look',
+        queries: [seed.kind === 'product' ? seed.name : note || 'outfit inspiration'],
+        categories: product?.category ? [product.category] : [],
+        required: true,
+        quantity: 1,
+      }],
+      seeds: [seed],
+    })
+    return { mode: 'new-mission' as const, ...started }
+  }
+
+  /** Records purchases the agent reported from Shop; only seller, brand, product link, and order link are kept. */
+  function recordPurchases(input: {
+    source: 'checkout' | 'order-history'
+    purchases: Array<{ sellerDomain?: string; productUrl?: string; brand?: string; orderPermalink?: string }>
+  }) {
+    if (!Array.isArray(input.purchases) || !input.purchases.length || input.purchases.length > 50) {
+      throw new Error('Report between 1 and 50 purchases.')
+    }
+    const productUrls: string[] = []
+    const brands: string[] = []
+    const orderedGroups = new Map<string, string | undefined>()
+    const rejected: Array<{ index: number; reason: string }> = []
+    input.purchases.forEach((purchase, index) => {
+      try {
+        if (purchase.productUrl) {
+          const url = new URL(purchase.productUrl.trim())
+          if (!['http:', 'https:'].includes(url.protocol)) throw new Error('productUrl must use HTTP or HTTPS.')
+          productUrls.push(url.toString())
+        }
+        const brand = purchase.brand?.trim().replace(/\s+/g, ' ').slice(0, 80)
+        if (brand) brands.push(brand)
+        if (input.source === 'checkout') {
+          const sellerDomain = purchase.sellerDomain?.trim().toLowerCase()
+          if (!sellerDomain) throw new Error('sellerDomain is required for a completed checkout.')
+          const permalink = purchase.orderPermalink ? new URL(purchase.orderPermalink.trim()) : undefined
+          if (permalink && permalink.protocol !== 'https:') throw new Error('orderPermalink must use HTTPS.')
+          orderedGroups.set(`shop:${sellerDomain}`, permalink?.toString())
+        }
+      } catch (error) {
+        rejected.push({ index, reason: error instanceof Error ? error.message : 'Invalid purchase.' })
+      }
+    })
+    persistResearchHistory(recordPurchaseSignals(readResearchHistory(), productUrls, brands))
+    const now = new Date().toISOString()
+    const markedOrdered = deps.cart.value.merchantCarts.filter(merchantCart => orderedGroups.has(merchantCart.groupKey)).map(merchantCart => merchantCart.groupKey)
+    if (markedOrdered.length) {
+      deps.cart.value = {
+        ...deps.cart.value,
+        merchantCarts: deps.cart.value.merchantCarts.map(merchantCart => orderedGroups.has(merchantCart.groupKey)
+          ? { ...merchantCart, status: 'ordered' as const, orderPermalink: orderedGroups.get(merchantCart.groupKey) ?? merchantCart.orderPermalink, updatedAt: now }
+          : merchantCart),
+      }
+      persistCart()
+      deps.notify?.(`Order confirmed at ${markedOrdered.length === 1 ? deps.cart.value.merchantCarts.find(item => item.groupKey === markedOrdered[0])!.sellerName : `${markedOrdered.length} stores`}.`)
+    }
+    return {
+      recorded: input.purchases.length - rejected.length,
+      rejected,
+      markedOrdered,
+      purchasedBrands: readResearchHistory().purchasedBrands,
+    }
+  }
+
+  /**
+   * Starts a mission from a brief, optionally guided by a reference image. The image joins the inspiration board,
+   * becomes the mission's visual guide, and seeds one Shop visual search per wearable need. Without an image the
+   * mission runs exactly as briefed.
+   */
+  function startGuidedSearch(
+    input: SearchMissionInput,
+    guide: { imageData?: string; inspirationId?: string; palette?: string[]; descriptors?: string[] } = {},
+    actor: ActionSource = 'human',
+  ) {
+    const existing = deps.search.value.activeSearch
+    if (existing?.recommendationReview?.status === 'pending') expireRecommendationReview(existing.id)
+    if (deps.search.value.activeSearch?.status === 'active') {
+      throw new Error('A shopping search is already active. Complete, satisfy, cancel, or abandon it before starting another mission.')
+    }
+    if (deps.search.value.activeSearch?.recommendationReview?.status === 'pending') {
+      throw new Error('Review the current recommendations before starting another mission.')
+    }
+    if (guide.imageData && guide.inspirationId) throw new Error('Send either a new reference image or an existing inspirationId, not both.')
+    const created = guide.imageData
+      ? addInspiration({ source: 'upload', imageData: guide.imageData, note: `Guide for “${input.rawPrompt.trim().slice(0, 60)}”` }, actor)
+      : undefined
+    const item = created ?? (guide.inspirationId ? inspiration.value.items.find(candidate => candidate.id === guide.inspirationId) : undefined)
+    if (guide.inspirationId && !item) throw new Error(`Inspiration not found: ${guide.inspirationId}`)
+    const palette = guide.palette ?? []
+    const descriptors = guide.descriptors ?? []
+    const visualGuide: VisualGuide | undefined = item || palette.length || descriptors.length
+      ? { inspirationId: item?.id, palette, descriptors }
+      : undefined
+    const seed: SimilaritySeed[] = item
+      ? [{ kind: 'image', inspirationId: item.id, source: item.source, imageUrl: item.imageUrl, note: item.note }]
+      : []
+    let started: ReturnType<typeof startShoppingSearch>
+    try {
+      started = startShoppingSearch({
+        ...input,
+        context: { ...input.context, ...(visualGuide ? { visualGuide } : {}) },
+        seeds: [...seed, ...(input.seeds ?? [])],
+      })
+    } catch (error) {
+      if (created) removeInspiration(created.id)
+      throw error
+    }
+    if (item) {
+      inspiration.value = {
+        version: 1,
+        items: inspiration.value.items.map(candidate => candidate.id === item.id ? { ...candidate, searchId: started.searchId } : candidate),
+      }
+      persistInspiration()
+      deps.notify?.('Rove will use your photo as the style guide for this mission.')
+    }
+    return { ...started, guide: started.mission.context.visualGuide ?? null }
+  }
+
+  /** The person's saved size for a product's category; swimwear and activewear fall back to their top size. */
+  function statedSize(category: ProductCategory | undefined): string | undefined {
+    const profile = deps.profile.value
+    if (!profile || category === 'fragrance' || category === 'accessories') return undefined
+    if (category === 'footwear') return profile.shoeSize
+    const sizes = profile.clothingSizes ?? {}
+    return category && category in sizes ? sizes[category as keyof typeof sizes] : sizes.tops
+  }
+
+  const ONE_SIZE = /^(?:one[\s-]?size|os|o\/s|one size fits all)$/i
+
+  /** Matches known size synonyms only; never guess between US, UK and EU numeric sizes. */
+  function listingSize(product: Product): string | undefined {
+    const stated = statedSize(product.category)
+    if (!stated) return undefined
+    return product.sizes.find(size => matchesSavedSize(size, stated))
+  }
+
+  /**
+   * A sized piece is added only in the person's own size. Without a saved size, or when the listing does not offer it,
+   * the person decides; a merchant's featured size or the first label on the page is never a choice.
+   */
+  function sizeDecision(product: Product): { reason: string; steps: AgentStep[] } | null {
+    if (!SIZED_PRODUCT_CATEGORIES.has(product.category ?? '') || !product.sizes.length) return null
+    if (product.sizes.length === 1 && ONE_SIZE.test(product.sizes[0]!)) return null
+    const saved = statedSize(product.category)
+    if (saved && listingSize(product)) return null
+    const onlyFeatured = Boolean(product.commerce) && product.sizes.length === 1
+    // Shop sometimes reports only the featured size; with a saved size, verification reads the real labels first.
+    if (saved && onlyFeatured) return null
+    const offered = product.sizes.join(', ')
+    const sizeKey = ['tops', 'bottoms', 'dresses', 'outerwear'].includes(product.category!) ? product.category! : 'tops'
+    const profileUpdate = product.category === 'footwear' ? { shoeSize: '<size the person chose>' } : { clothingSizes: { [sizeKey]: '<size the person chose>' } }
+    const readSizes: AgentStep[] = onlyFeatured && product.commerce
+      ? [{ server: 'rove', tool: 'inspect_shop_product', arguments: { searchId: product.searchId, productId: product.id, requestedOptions: product.commerce.selectedOptions.filter(option => !isSizeOption(option.name)) }, why: 'Shop reported only its featured size; read every offered size label.' }]
+      : []
+    return {
+      reason: saved
+        ? `Your saved size ${saved} is not offered for this listing. Offered: ${offered}.`
+        : onlyFeatured
+          ? `No saved ${product.category === 'footwear' ? 'shoe' : product.category} size, and Shop reported only its featured size ${offered}.`
+          : `No saved ${product.category === 'footwear' ? 'shoe' : product.category} size. Offered: ${offered}.`,
+      steps: [
+        ...readSizes,
+        { server: 'person', tool: 'choose_size', arguments: { productId: product.id, options: [...product.sizes] }, why: saved ? 'Ask whether another offered size fits, or replace this piece.' : 'Ask which size to buy; never use the merchant\'s featured size.' },
+        { server: 'rove', tool: 'update_profile', arguments: profileUpdate, why: 'Save the size the person gives, then retry cart_proposed_basket so every piece uses it.' },
+      ],
+    }
+  }
+
+  /**
+   * Adds the accepted basket to Your Thread in the person's sizes. Anything that still needs a stock check or a size
+   * choice comes back with the exact next step instead of being guessed.
+   */
+  function cartProposedBasket(input: { searchId?: string } = {}, actor: ActionSource = 'agent') {
+    const session = currentSession(input.searchId)
+    const review = session.recommendationReview
+    if (review?.status === 'pending') {
+      throw new Error('The person has not reviewed this basket yet. Present it first, or wait for automatic acceptance.')
+    }
+    const productIds = review ? review.likedProductIds : session.fulfillment.selectedProductIds
+    const reviewedSubtotal = productIds.reduce((total, id) => total + (getProductById(id)?.priceCad ?? 0), 0)
+    if (session.mission.constraints.overallBudgetCad !== undefined && reviewedSubtotal > session.mission.constraints.overallBudgetCad) throw new Error('Verified prices now exceed the basket budget. Review replacements before adding this basket.')
+    const added: Array<{ productId: string; itemId: string; size?: string; color?: string; assumed: string[] }> = []
+    const needsAction: Array<{ productId: string; name: string; reason: string; steps: AgentStep[] }> = []
+    for (const productId of productIds) {
+      const product = getProductById(productId)
+      if (!product) continue
+      const verificationSteps = (): AgentStep[] => {
+        if (!product.commerce) return [
+          { server: 'browser', tool: 'open', arguments: { url: product.url }, why: 'Check price and stock, and read every size and colour the page offers.' },
+          { server: 'rove', tool: 'enrich_product', arguments: { searchId: session.id, productId }, why: 'Store the observed evidence with every offered size and colour (sizes, colors), then retry cart_proposed_basket.' },
+        ]
+        const featured = product.commerce.selectedOptions.map(option => ({ ...option }))
+        const desired = statedSize(product.category)
+        const exact = listingSize(product)
+        const sizeName = featured.find(option => isSizeOption(option.name))?.name ?? 'Size'
+        // The featured size is Shop's pick, not the person's: request their size, or leave size open to read the labels.
+        const selected = featured.filter(option => !isSizeOption(option.name))
+        if (exact) selected.push({ name: sizeName, label: exact })
+        else if (!SIZED_PRODUCT_CATEGORIES.has(product.category ?? '')) selected.splice(0, selected.length, ...featured)
+        // An empty selection is sent explicitly: an omitted one falls back to the featured size.
+        const requested = selected.length || SIZED_PRODUCT_CATEGORIES.has(product.category ?? '') ? { requestedOptions: selected } : {}
+        return [
+          { server: 'rove', tool: 'inspect_shop_product', arguments: { searchId: session.id, productId,
+            ...requested },
+            why: !exact && SIZED_PRODUCT_CATEGORIES.has(product.category ?? '')
+              ? desired
+                ? `Read the merchant's exact size labels first, then verify the saved size ${desired} with get_product. Do not substitute another size or relax an option.`
+                : 'Read the offered sizes; the person has no saved size for this piece, so ask before verifying one.'
+              : 'Verify every requested option, stock, price and checkout_url. Compare the effective selection; do not accept substitutions.' },
+          { server: 'rove', tool: 'enrich_product', arguments: { searchId: session.id, productId, shopProductId: product.commerce.productId,
+            ...requested },
+            why: 'Copy one exact returned variant, including price and checkoutUrl. Supply the actual requestedOptions after resolving labels; mismatches are rejected. Then retry cart_proposed_basket.' },
+        ]
+      }
+      const decision = sizeDecision(product)
+      if (decision) {
+        needsAction.push({ productId, name: product.name, ...decision })
+        continue
+      }
+      if (product.stage !== 'enriched') {
+        needsAction.push({ productId, name: product.name, reason: 'Verify the requested options, price and stock before adding.', steps: verificationSteps() })
+        continue
+      }
+      if (!product.commerce && SIZED_PRODUCT_CATEGORIES.has(product.category ?? '') && !product.sizes.length) {
+        needsAction.push({ productId, name: product.name, reason: 'The offered sizes were not recorded for this listing.', steps: verificationSteps() })
+        continue
+      }
+      const policy = getProductVariantPolicy(product)
+      const assumed: string[] = []
+      const savedSize = statedSize(product.category)
+      const size = (policy.requiresSize || (product.commerce && savedSize)) ? listingSize(product) : undefined
+      if (product.commerce && savedSize && !size) {
+        needsAction.push({ productId, name: product.name, reason: `The saved size ${savedSize} has not been verified for this listing.`, steps: verificationSteps() })
+        continue
+      }
+      if (policy.requiresSize && !size) {
+        needsAction.push({
+          productId,
+          name: product.name,
+          reason: `Choose a size: ${policy.sizeOptions.join(', ')}.`,
+          steps: [{ server: 'person', tool: 'choose_size', arguments: { productId, options: policy.sizeOptions }, why: 'No saved profile size matches this listing.' }],
+        })
+        continue
+      }
+      // The presented image shows the featured colour, so that is the colour the person reviewed.
+      const featured = product.commerce?.selectedOptions.find(option => isColorOption(option.name))?.label
+      const color = policy.requiresColor ? (featured && policy.colorOptions.includes(featured) ? featured : product.commerce ? undefined : policy.colorOptions[0]) : undefined
+      if (policy.requiresColor && !color) {
+        needsAction.push({ productId, name: product.name, reason: 'Choose a colour before adding.', steps: [{ server: 'person', tool: 'choose_color', arguments: { productId, options: policy.colorOptions }, why: 'No colour has been selected.' }] })
+        continue
+      }
+      try {
+        const result = addToCart(product.id, { size, color }, actor)
+        added.push({ productId, itemId: result.item.id, size: result.item.size, color: result.item.color, assumed })
+      } catch (error) {
+        needsAction.push({
+          productId,
+          name: product.name,
+          reason: error instanceof Error ? error.message : 'Could not add this product.',
+          steps: verificationSteps(),
+        })
+      }
+    }
+    return {
+      searchId: session.id,
+      added,
+      needsAction,
+      cart: getCart(),
+      next: JSON.parse(JSON.stringify(needsAction.length
+        ? needsAction.flatMap(item => item.steps)
+        : [{ server: 'rove', tool: 'get_checkout_plan', why: 'Prepare Shop carts per store only when the person asks to check out.' }])) as AgentStep[],
     }
   }
 
@@ -960,6 +1548,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     resetWorkspace,
     startShoppingSearch,
     claimSearchTargets,
+    resolveStore,
     publishCandidates,
     enrichProduct,
     completeSearchTarget,
@@ -971,6 +1560,7 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     researchAgain,
     getResearchHistory,
     getProductById,
+    getShopRequest,
     getVisibleProducts,
     getRetailers,
     getExecutionTrace,
@@ -978,5 +1568,14 @@ export function createThreadActions(deps: ThreadActionDependencies) {
     removeFromCart,
     clearCart,
     getCart,
+    getCheckoutPlan,
+    attachMerchantCart,
+    getInspiration,
+    addInspiration,
+    removeInspiration,
+    findSimilar,
+    recordPurchases,
+    startGuidedSearch,
+    cartProposedBasket,
   }
 }
